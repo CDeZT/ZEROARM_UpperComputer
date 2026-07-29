@@ -59,7 +59,7 @@ Agent收到类似“一句话启动”时，必须把它解释为：
 
 规划单元完成时的事实：
 
-- 上位机尚未开始编码。
+- 上位机单元0工程基线已完成。
 - 技术栈：Python + PySide6。
 - 首发Transport：Mock + Serial。
 - 当前MCU V1协议可用于兼容开发。
@@ -353,5 +353,5 @@ Mock不能绕过真实Domain/SafetyGate；只替换Transport另一端。
 
 ## 14. 当前下一步
 
-上位机源码尚未创建。其他编码Agent收到README的一句话入口后，只执行
-`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元0：工程基线。
+单元0工程基线已完成。其他编码Agent收到README的一句话入口后，只执行
+`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元1：纯协议基础。

@@ -21,10 +21,10 @@ UpperComputer/
 ├── PROJECT_SPEC.yaml
 ├── README.md
 ├── docs/
-├── src/                 # 实施单元 1 创建
-├── tests/               # 实施单元 1 创建
-├── resources/           # 实施单元 1 创建
-├── tools/               # 实施单元 1 创建
+├── src/                 # 实施单元 0 已创建
+├── tests/               # 实施单元 0 已创建
+├── resources/           # 实施单元 0 已创建
+├── tools/               # 实施单元 0 已创建
 └── packaging/           # 打包单元创建
 ```
 

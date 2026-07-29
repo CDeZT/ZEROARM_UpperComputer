@@ -93,7 +93,7 @@ quality_commands:
 units:
   - id: 0
     name: engineering_baseline
-    status: pending
+    status: completed
     depends_on: []
     creates: [pyproject.toml, src_layout, tests_layout, resources_layout, minimal_qt_window]
     verifies: [clean_install, lint, type_check, pytest, gui_start_close_without_hardware]
@@ -101,7 +101,7 @@ units:
 
   - id: 1
     name: pure_v1_frame_protocol
-    status: blocked_by_dependency
+    status: pending
     depends_on: [0]
     creates: [crc8, frame_encoder, incremental_parser, golden_fixtures]
     verifies: [unit, hypothesis_random_chunking, noise_crc_etx_length_boundaries]

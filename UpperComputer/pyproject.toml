@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zeroarm-desktop"
+version = "0.1.0"
+description = "ZeroArm desktop debugger and operator console"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "Proprietary" }
+authors = [{ name = "ZeroArm" }]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pyside6>=6.8,<6.10",
+]
+
+[project.gui-scripts]
+zeroarm-desktop = "zeroarm_desktop.bootstrap:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15,<2",
+    "pytest>=8.3,<9",
+    "pytest-qt>=4.4,<5",
+    "ruff>=0.11,<0.13",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zeroarm_desktop"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+qt_api = "pyside6"
