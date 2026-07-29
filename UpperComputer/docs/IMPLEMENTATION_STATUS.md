@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：3D工作区完成
-已完成实施单元：单元0～12
+阶段：统一SafetyGate完成
+已完成实施单元：单元0～13
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元13 SafetyGate
+下一审查单元：单元14 Mock手动关节控制
 编码执行者：Kilo
 ```
 
@@ -70,6 +70,9 @@
 - `page_workspace_3d`在原生Windows使用PyOpenGL渲染，offscreen自动降级为场景数据模式。
 - 原生OpenGL探针加载14个mesh item并生成116,808字节非空截图。
 - 单元12完成时ruff、mypy和93项pytest通过。
+- 已实现纯SafetyGate、命令分级、全部拒绝原因、preview hash和5秒ArmContext。
+- CommandService执行前重新核验token、hash、generation、校准、命令族和轴mask。
+- SafetyGate核心143 statements/42 branches均达到100%覆盖；全量105项pytest通过。
 
 ## 待审批
 
@@ -79,13 +82,13 @@
 
 ## 下一轮边界
 
-当前连续GUI里程碑的下一单元为单元13：
+当前连续GUI里程碑的下一单元为单元14：
 
-- 纯SafetyGate、命令分级、不可变SafetyContext和全部拒绝原因。
-- Preview hash、短时ArmContext和执行时二次核验。
-- GUI/未来手柄/终端统一CommandService入口。
+- `page_manual_joint`绝对/相对目标与六轴预览。
+- ghost预览、Arm/发送、hold-to-run和失焦/断线停止。
+- Mock E2E必须经过SafetyGate、DeviceSession和V1 bytes。
 
-本单元不连接硬件，不发送任何动作命令。
+仅允许Mock动作；真实Serial保持只读，不发送任何动作命令。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

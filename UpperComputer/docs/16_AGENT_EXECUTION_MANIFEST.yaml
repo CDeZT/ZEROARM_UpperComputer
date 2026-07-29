@@ -197,7 +197,7 @@ units:
 
   - id: 13
     name: safety_gate
-    status: pending
+    status: completed
     depends_on: [5, 6, 11]
     creates: [command_classification, arm_context, safety_decision, preview_hash]
     verifies: [branch_coverage_100_target, hypothesis_boundaries, all_disarm_triggers]
@@ -205,7 +205,7 @@ units:
 
   - id: 14
     name: manual_joint_control_mock
-    status: blocked_by_dependency
+    status: pending
     depends_on: [9, 12, 13]
     creates: [absolute_relative_targets, ghost_preview, hold_to_run, stop_intent]
     verifies: [mock_e2e, focus_loss, mouse_release, disconnect, limit_denial]
