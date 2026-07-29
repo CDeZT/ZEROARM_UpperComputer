@@ -1,0 +1,55 @@
+{
+  "files": [
+    {
+      "path": "licenses/GPL-2.0.txt",
+      "sha256": "189b1af95d661151e054cea10c91b3d754e4de4d3fecfb074c1fb29476f7167b",
+      "size": 18431
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/base_link.STL",
+      "sha256": "70dbd397304b81bf44fb7babd868f8659e5fa16813cc599f9991f6af6e6aa31b",
+      "size": 4568384
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/ee_link.STL",
+      "sha256": "6ebd51dea1e6b5489077b55398316e812a9083a12711b523a5485067ab1eea4f",
+      "size": 59384
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/link1.STL",
+      "sha256": "d961348cf1a595d3aa31f95fe61f1acc3ca7b3a3edc2f3f8bf8dc0abafb25bc5",
+      "size": 183084
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/link2.STL",
+      "sha256": "ac33e47672fbf8342f5e20d522711c287f4262f4f31c62a0a8600ba2482ca0e6",
+      "size": 5505184
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/link3.STL",
+      "sha256": "d06a6efc12153b70e2862489bae266431b7dfed3177c68fdb106038883d2f76e",
+      "size": 2681284
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/link4.STL",
+      "sha256": "b93722fead98009352e73895528ae1b2b05a252fca58b306d47048b67c98f2b3",
+      "size": 2871984
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/link5.STL",
+      "sha256": "79ea06f8a76226b3cf4ff121c5cf27ac0c8f694ff0d8cb3913b99ee529c8f1fc",
+      "size": 2720584
+    },
+    {
+      "path": "URDF_XG_Robot_Arm_Urdf_V1_1/urdf/URDF_XG_Robot_Arm_Urdf_V1_1.urdf",
+      "sha256": "a9abf4e0d714c6a24e1a36e6cfe067727b1ab1b6aa43c78a08c440a04048f6bd",
+      "size": 9431
+    }
+  ],
+  "license": "GPL-2.0",
+  "package_name": "URDF_XG_Robot_Arm_Urdf_V1_1",
+  "schema_version": 1,
+  "source": "zero_arm_mcu/docx/Reference_project/zero-robotic-arm-master",
+  "source_revision": "workspace-reference-copy-2026-07-29",
+  "urdf": "URDF_XG_Robot_Arm_Urdf_V1_1/urdf/URDF_XG_Robot_Arm_Urdf_V1_1.urdf"
+}

@@ -2,10 +2,10 @@
 
 ## 1. 唯一参考路径
 
-当前仓库已经包含参考项目：
+当前工作区的只读参考项目实际位于：
 
 ```text
-docx/Reference_project/zero-robotic-arm-master/
+zero_arm_mcu/docx/Reference_project/zero-robotic-arm-master/
 ```
 
 桌面路径还存在外层工具、`node_modules` 和嵌套副本，不应整体复制进仓库。
@@ -60,8 +60,9 @@ MCU joint urad
 7. 用 URDF 零位、参考截图和 MATLAB 已知姿态做黄金图验证。
 8. 目标姿态使用半透明 ghost model；实际姿态使用实体模型。
 
-参考文件只读；需要打包的模型复制到 `UpperComputer/resources/robot_model/`，
-并保存来源和哈希。
+参考文件只读；需要打包的模型已通过 `tools/copy_reference_assets.py` 复制到
+`UpperComputer/resources/robot_model/`，来源、许可证、文件大小和SHA-256记录在
+`manifest.json`。运行时校验不依赖参考项目绝对路径。
 
 ## 5. 不能直接复用的内容
 
@@ -108,12 +109,12 @@ ZERO参考项目的本地上位机源码；若未来要借鉴，需另行做协�
 ## 7. 资产验收
 
 ```text
-[ ] URDF 可解析且关节树为单根无环
-[ ] 7 个 link 和 6 个 joint 完整
-[ ] 7 个 STL 均可加载
+[x] URDF 可解析且关节树为单根无环
+[x] 7 个 link 和 6 个 joint 完整
+[x] 7 个 STL 均可加载
 [ ] 网格缩放和朝向通过黄金图
 [ ] MCU→模型六轴映射有集中配置和单元测试
 [ ] FK 与 MATLAB/MuJoCo 至少 10 个已知姿态一致
-[ ] 打包后不依赖桌面绝对路径
-[ ] 参考资产许可证随发行包保留
+[x] 运行时资产不依赖桌面绝对路径
+[x] 参考资产GPL-2.0许可证已复制到运行时资源
 ```

@@ -173,7 +173,7 @@ units:
 
   - id: 10
     name: reference_asset_pipeline
-    status: pending
+    status: completed
     depends_on: [0]
     creates: [urdf_mesh_copy_tool, hash_manifest, package_uri_resolver]
     verifies: [seven_meshes, source_hashes, bounds, no_absolute_desktop_paths]
@@ -181,7 +181,7 @@ units:
 
   - id: 11
     name: joint_mapping_and_fk
-    status: blocked_by_dependency
+    status: pending
     depends_on: [10]
     creates: [joint_model_mapping, fk, coordinate_report]
     verifies: [zero_pose, single_joint_cases, mapping_roundtrip, golden_pose_report]
