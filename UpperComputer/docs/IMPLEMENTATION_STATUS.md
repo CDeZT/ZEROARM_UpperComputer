@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：Serial Transport完成
-已完成实施单元：单元0～4
+阶段：DeviceSession完成
+已完成实施单元：单元0～5
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元5 DeviceSession
+下一审查单元：单元6 配置、日志与SQLite
 编码执行者：Kilo
 ```
 
@@ -42,6 +42,9 @@
 - 已实现可取消Serial worker、部分写处理、有界队列和跨平台端口发现。
 - pyserial全部行为由fake backend验证；现场未打开端口、未发送协议帧。
 - 单元4完成时ruff、mypy和57项pytest通过。
+- 已实现V1只读Session状态机、HELLO/GET_STATE握手、单请求在途和20/50/100 Hz轮询。
+- Mock E2E经真实双端V1 bytes链路进入READONLY_READY，错误握手不会伪报就绪。
+- 单元5完成时ruff、mypy和65项pytest通过。
 
 ## 待审批
 
@@ -51,13 +54,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元5：
+当前连续Demo授权的下一单元为单元6：
 
-- 连接状态机、HELLO/GET_STATE握手和V1单在途。
-- 20/50/100 Hz只读轮询、超时和poll coalescing。
-- Mock E2E与重连后只读语义。
+- 版本化配置与安全默认值。
+- SQLite migration、批量Recorder和CSV/JSON导出。
+- 数据库故障、批写和导出往返测试。
 
-本单元仅做Mock E2E，不连接硬件，不实现3D或控制页面。
+本单元不连接硬件，不实现GUI、3D或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

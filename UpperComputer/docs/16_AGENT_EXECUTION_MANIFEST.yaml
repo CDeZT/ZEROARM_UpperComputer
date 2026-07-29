@@ -133,7 +133,7 @@ units:
 
   - id: 5
     name: device_session
-    status: pending
+    status: completed
     depends_on: [2, 3, 4]
     creates: [session_state_machine, handshake, v1_single_inflight, readonly_reconnect]
     verifies: [transition_table, timeout, stale_snapshot, reconnect_disarms]
@@ -141,7 +141,7 @@ units:
 
   - id: 6
     name: config_logging_sqlite
-    status: blocked_by_dependency
+    status: pending
     depends_on: [0, 5]
     creates: [config_schema, migrations, recorder, csv_json_export]
     verifies: [migration, transaction_failure, batch_write, export_roundtrip]
