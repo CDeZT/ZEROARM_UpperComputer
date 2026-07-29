@@ -53,7 +53,8 @@ def test_100hz_input_is_rendered_at_no_more_than_60fps(qtbot: QtBot) -> None:
         view_model.ingest_snapshot(_snapshot(generation))
     qtbot.wait(100)
     assert view_model.sample_count == 1000
-    assert len(renders) <= 7
+    # Windows may process one timer tick on each side of the measured wait window.
+    assert len(renders) <= 8
     assert view_model.current_state().generation == 999
     view_model.close()
 

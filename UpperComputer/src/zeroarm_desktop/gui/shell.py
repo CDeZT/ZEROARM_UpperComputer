@@ -1,6 +1,7 @@
 """Navigation shell and stable global status surface."""
 
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
@@ -18,8 +19,12 @@ from PySide6.QtWidgets import (
 from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
+from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
+from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
+from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
+from zeroarm_desktop.model3d.scene import RobotSceneBuilder
 from zeroarm_desktop.version import __version__
 
 
@@ -74,9 +79,16 @@ class MainWindow(QMainWindow):
         self.snapshot_view_model = SnapshotViewModel()
         self.snapshot_view_model.state_changed.connect(self._apply_snapshot_state)
         self.connection_page.session_changed.connect(self.snapshot_view_model.bind_session)
+        asset_root = Path(__file__).parents[3] / "resources" / "robot_model"
+        urdf = asset_root / "URDF_XG_Robot_Arm_Urdf_V1_1/urdf" / "URDF_XG_Robot_Arm_Urdf_V1_1.urdf"
+        self.workspace_view_model = Workspace3DViewModel(
+            RobotSceneBuilder(UrdfForwardKinematics(urdf))
+        )
+        self.connection_page.session_changed.connect(self.workspace_view_model.bind_session)
         self.register_page("connection", self.connection_page)
         self.register_page("dashboard", DashboardPage(self.snapshot_view_model))
         self.register_page("joint_monitor", JointMonitorPage(self.snapshot_view_model))
+        self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -144,6 +156,7 @@ class MainWindow(QMainWindow):
             ("connection", "连接与设备"),
             ("dashboard", "系统总览"),
             ("joint_monitor", "六轴监控"),
+            ("workspace_3d", "3D 工作区"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")
@@ -190,6 +203,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.snapshot_view_model.close()
+        self.workspace_view_model.close()
         self.connection_page.close_session()
         if self._shutdown is not None:
             self._shutdown()

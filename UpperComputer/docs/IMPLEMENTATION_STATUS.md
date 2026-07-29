@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：关节映射与FK完成
-已完成实施单元：单元0～11
+阶段：3D工作区完成
+已完成实施单元：单元0～12
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元12 3D工作区
+下一审查单元：单元13 SafetyGate
 编码执行者：Kilo
 ```
 
@@ -66,6 +66,10 @@
 - URDF FK输出7个link世界变换，复现URDF零位与modified-DH零位黄金姿态。
 - 坐标报告明确模型证据完成但实机编码器零点/方向仍未验证。
 - 单元11完成时ruff、mypy和88项pytest通过。
+- 已实现NumPy二进制STL加载、actual/ghost双场景、世界轴、网格和有界末端tail。
+- `page_workspace_3d`在原生Windows使用PyOpenGL渲染，offscreen自动降级为场景数据模式。
+- 原生OpenGL探针加载14个mesh item并生成116,808字节非空截图。
+- 单元12完成时ruff、mypy和93项pytest通过。
 
 ## 待审批
 
@@ -75,13 +79,13 @@
 
 ## 下一轮边界
 
-当前连续GUI里程碑的下一单元为单元12：
+当前连续GUI里程碑的下一单元为单元13：
 
-- 加载7个STL并构建actual/ghost场景。
-- 页面提供坐标轴、相机视角和有界轨迹tail。
-- Headless场景数据、OpenGL降级和原生Windows截图验证。
+- 纯SafetyGate、命令分级、不可变SafetyContext和全部拒绝原因。
+- Preview hash、短时ArmContext和执行时二次核验。
+- GUI/未来手柄/终端统一CommandService入口。
 
-模型映射已通过参考资产黄金姿态；实机映射仍待装机确认，不开放硬件发送。
+本单元不连接硬件，不发送任何动作命令。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。
