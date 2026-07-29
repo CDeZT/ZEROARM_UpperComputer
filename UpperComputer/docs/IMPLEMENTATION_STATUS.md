@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：Transport契约与Mock完成
-已完成实施单元：单元0～3
+阶段：Serial Transport完成
+已完成实施单元：单元0～4
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元4 Serial Transport与发现
+下一审查单元：单元5 DeviceSession
 编码执行者：Kilo
 ```
 
@@ -39,6 +39,9 @@
 - 已建立bytes-only Transport契约、订阅生命周期和不可变链路统计。
 - MockDevice真实解析V1请求bytes并生成60字节状态，支持确定性运动和字节级故障注入。
 - 单元3完成时ruff、mypy和52项pytest通过。
+- 已实现可取消Serial worker、部分写处理、有界队列和跨平台端口发现。
+- pyserial全部行为由fake backend验证；现场未打开端口、未发送协议帧。
+- 单元4完成时ruff、mypy和57项pytest通过。
 
 ## 待审批
 
@@ -48,13 +51,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元4：
+当前连续Demo授权的下一单元为单元5：
 
-- pyserial worker与有界写队列。
-- 串口发现、VID/PID和描述。
-- fake serial下打开、关闭、读取消、部分写和断线测试。
+- 连接状态机、HELLO/GET_STATE握手和V1单在途。
+- 20/50/100 Hz只读轮询、超时和poll coalescing。
+- Mock E2E与重连后只读语义。
 
-本单元不发送任何真实协议命令，不实现Session、3D或控制页面。
+本单元仅做Mock E2E，不连接硬件，不实现3D或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

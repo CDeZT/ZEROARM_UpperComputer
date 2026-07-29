@@ -17,6 +17,10 @@ class TransportOpenError(TransportError):
     """A transport could not be opened."""
 
 
+class TransportPermissionError(TransportOpenError):
+    """The operating system denied access to a transport."""
+
+
 class TransportDisconnected(TransportError):
     """The byte link is no longer connected."""
 
