@@ -1,0 +1,119 @@
+{
+  "golden_model_zero": {
+    "end_effector_position_m": [
+      3.7195683193393725e-07,
+      -0.17263044489013465,
+      0.18149914670023345
+    ],
+    "reference": "URDF + MuJoCo + modified-DH audit 2026-07-29",
+    "robot_urad": [
+      0,
+      3141593,
+      -1570796,
+      0,
+      1570796,
+      0
+    ]
+  },
+  "hardware_mapping_verified": false,
+  "mapping": [
+    {
+      "hardware_verified": false,
+      "model_joint": "joint1",
+      "model_range_rad": [
+        null,
+        null
+      ],
+      "offset_rad": 0.0,
+      "robot_index": 0,
+      "robot_range_urad": [
+        0,
+        6283080
+      ],
+      "sign": 1,
+      "wrap": true
+    },
+    {
+      "hardware_verified": false,
+      "model_joint": "joint2",
+      "model_range_rad": [
+        -1.5707963267948966,
+        1.5707963267948966
+      ],
+      "offset_rad": -3.141592653589793,
+      "robot_index": 1,
+      "robot_range_urad": [
+        1570770,
+        3141540
+      ],
+      "sign": 1,
+      "wrap": false
+    },
+    {
+      "hardware_verified": false,
+      "model_joint": "joint3",
+      "model_range_rad": [
+        0.0,
+        3.141592653589793
+      ],
+      "offset_rad": 1.5707963267948966,
+      "robot_index": 2,
+      "robot_range_urad": [
+        -1570770,
+        1570770
+      ],
+      "sign": 1,
+      "wrap": false
+    },
+    {
+      "hardware_verified": false,
+      "model_joint": "joint4",
+      "model_range_rad": [
+        null,
+        null
+      ],
+      "offset_rad": 0.0,
+      "robot_index": 3,
+      "robot_range_urad": [
+        -1570770,
+        1570770
+      ],
+      "sign": 1,
+      "wrap": false
+    },
+    {
+      "hardware_verified": false,
+      "model_joint": "joint5",
+      "model_range_rad": [
+        -1.5707963267948966,
+        0.0
+      ],
+      "offset_rad": -1.5707963267948966,
+      "robot_index": 4,
+      "robot_range_urad": [
+        0,
+        1570770
+      ],
+      "sign": 1,
+      "wrap": false
+    },
+    {
+      "hardware_verified": false,
+      "model_joint": "joint6",
+      "model_range_rad": [
+        null,
+        null
+      ],
+      "offset_rad": 0.0,
+      "robot_index": 5,
+      "robot_range_urad": [
+        0,
+        6283080
+      ],
+      "sign": 1,
+      "wrap": true
+    }
+  ],
+  "schema_version": 1,
+  "warning": "Model-coordinate evidence is complete; installed encoder zero/sign remains unverified."
+}
