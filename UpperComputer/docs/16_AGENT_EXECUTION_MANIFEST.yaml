@@ -149,7 +149,7 @@ units:
 
   - id: 7
     name: gui_shell
-    status: pending
+    status: completed
     depends_on: [0, 5, 6]
     creates: [main_window, navigation, status_bar, themes, notification_center]
     verifies: [pytest_qt_navigation, layout_restore_without_arm_state, safe_shutdown]
@@ -157,7 +157,7 @@ units:
 
   - id: 8
     name: connection_page
-    status: blocked_by_dependency
+    status: pending
     depends_on: [4, 5, 7]
     creates: [mock_serial_selector, port_list, handshake_timeline, reconnect_controls]
     verifies: [gui_connect_disconnect, failed_handshake, port_refresh]

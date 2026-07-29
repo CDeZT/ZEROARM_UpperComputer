@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QApplication, QLabel
 from pytestqt.qtbot import QtBot
 
 from zeroarm_desktop.bootstrap import create_qt_application
-from zeroarm_desktop.gui.main_window import MainWindow
+from zeroarm_desktop.gui.shell import MainWindow
 from zeroarm_desktop.version import __version__
 
 
@@ -16,12 +16,12 @@ def test_main_window_starts_without_hardware(qtbot: QtBot) -> None:
 
     assert window.isVisible()
     assert window.windowTitle() == f"ZeroArm Desktop {__version__}"
-    status = window.findChild(QLabel, "connection_status")
+    status = window.findChild(QLabel, "connection_badge")
     assert status is not None
-    assert "尚未连接" in status.text()
-    assert window.findChild(QLabel, "application_title") is not None
-    assert window.findChild(QLabel, "active_navigation") is not None
-    assert window.minimumWidth() >= 900
+    assert "未连接" in status.text()
+    assert window.findChild(QLabel, "notification_center") is not None
+    assert window.findChild(QLabel, "link_status") is not None
+    assert window.minimumWidth() >= 1280
 
     window.close()
     assert not window.isVisible()

@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from PySide6.QtWidgets import QApplication
 
-from zeroarm_desktop.gui.main_window import MainWindow
+from zeroarm_desktop.gui.shell import MainWindow
 
 
 def create_qt_application(argv: Sequence[str]) -> tuple[QApplication, MainWindow]:
