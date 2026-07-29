@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：DeviceSession完成
-已完成实施单元：单元0～5
+阶段：配置、SQLite与Recorder完成
+已完成实施单元：单元0～6
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元6 配置、日志与SQLite
+下一审查单元：单元7 GUI壳
 编码执行者：Kilo
 ```
 
@@ -45,6 +45,9 @@
 - 已实现V1只读Session状态机、HELLO/GET_STATE握手、单请求在途和20/50/100 Hz轮询。
 - Mock E2E经真实双端V1 bytes链路进入READONLY_READY，错误握手不会伪报就绪。
 - 单元5完成时ruff、mypy和65项pytest通过。
+- 已实现Pydantic版本化配置、跨平台数据路径、SQLite WAL migration和批量Recorder。
+- 支持CSV/JSON会话导出、批量写入及有界队列丢弃统计。
+- 单元6完成时ruff、mypy和69项pytest通过。
 
 ## 待审批
 
@@ -54,13 +57,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元6：
+当前连续Demo授权的下一单元为单元7：
 
-- 版本化配置与安全默认值。
-- SQLite migration、批量Recorder和CSV/JSON导出。
-- 数据库故障、批写和导出往返测试。
+- 正式MainWindow、真实导航、状态栏和主题。
+- Qt Runtime桥接、通知中心和有界安全关闭。
+- 窗口布局恢复但不恢复任何动作状态。
 
-本单元不连接硬件，不实现GUI、3D或控制页面。
+本单元保持只读，不实现连接业务页、3D或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

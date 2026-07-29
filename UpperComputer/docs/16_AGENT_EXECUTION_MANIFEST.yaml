@@ -141,7 +141,7 @@ units:
 
   - id: 6
     name: config_logging_sqlite
-    status: pending
+    status: completed
     depends_on: [0, 5]
     creates: [config_schema, migrations, recorder, csv_json_export]
     verifies: [migration, transaction_failure, batch_write, export_roundtrip]
@@ -149,7 +149,7 @@ units:
 
   - id: 7
     name: gui_shell
-    status: blocked_by_dependency
+    status: pending
     depends_on: [0, 5, 6]
     creates: [main_window, navigation, status_bar, themes, notification_center]
     verifies: [pytest_qt_navigation, layout_restore_without_arm_state, safe_shutdown]
