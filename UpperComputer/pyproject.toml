@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "platformdirs>=4.3,<5",
     "pydantic>=2.11,<3",
+    "pyqtgraph>=0.13.7,<0.15",
     "pyside6>=6.8,<6.10",
     "pyserial>=3.5,<4",
 ]

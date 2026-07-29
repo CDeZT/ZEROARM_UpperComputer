@@ -46,7 +46,7 @@ UpperComputer/
 - 技术栈为 Python 3.12/3.13 + PySide6。
 - 首发 Transport 为 Mock + Serial。
 - GUI、协议、3D、轨迹、示教、诊断、记录、固件更新和打包均已规划。
-- 上位机工程基线和纯V1帧协议已验证；下一个实施单元为V1命令Codec。
+- 上位机单元0～9已验证，当前具备可交互V1 Mock连接与六轴监控Demo。
 - Windows 免安装包是必交付，安装包为建议交付。
 
 ## 3. MCU 入口

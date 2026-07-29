@@ -4,8 +4,8 @@
 
 | 需求组 | 实施单元 | 主要自动测试 |
 |---|---|---|
-| FR-CON 连接 | 3～5、8 | contract、session state、pytest-qt |
-| FR-STA 状态 | 2、5、9、26 | codec、snapshot、GUI高频 |
+| FR-CON 连接 | 3～5、8 | Mock/Serial contract、Session状态、`test_connection_page.py` |
+| FR-STA 状态 | 2、5、9、26 | V1 Codec、Snapshot ViewModel、`test_dashboard_monitor.py` |
 | FR-JOG 手动控制 | 13～14、31A/B | SafetyGate、Mock E2E、真机限定测试 |
 | FR-KIN 运动学 | 11、18、31F | 黄金姿态、IK→FK、真机延期 |
 | FR-3D 三维 | 10～12 | asset、mapping、render性能 |

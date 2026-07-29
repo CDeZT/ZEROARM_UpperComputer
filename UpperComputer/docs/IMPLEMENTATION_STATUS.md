@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：连接页完成
-已完成实施单元：单元0～8
+阶段：V1只读Mock Demo完成
+已完成实施单元：单元0～9
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元9 Dashboard与六轴监控
+下一审查单元：单元10 参考资产流水线
 编码执行者：Kilo
 ```
 
@@ -54,6 +54,10 @@
 - 已实现Mock/Serial选择、端口刷新、轮询率和Mock seed配置。
 - GUI Mock连接通过真实Session完成HELLO/GET_STATE，展示握手时间线与V1身份。
 - 单元8完成时ruff、mypy和74项pytest通过。
+- 已实现Snapshot ViewModel、Dashboard、六轴表格和pyqtgraph target/actual/error曲线。
+- 100 Hz输入经latest-value与最高60 FPS渲染解耦，plot ring固定为6000样本。
+- V1缺失velocity/current/online明确显示“V1未提供”，不伪造为0。
+- 单元9完成时ruff、mypy和77项pytest通过。
 
 ## 待审批
 
@@ -63,13 +67,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元9：
+若继续按Manifest开发，下一单元为单元10：
 
-- Snapshot ViewModel、六轴卡、链路和故障状态。
-- 固定容量60秒ring与target/actual/error曲线。
-- 100 Hz输入、60 FPS渲染节流和V1 Unknown显示。
+- 从只读参考项目导入URDF与七个mesh。
+- 记录来源和SHA-256，禁止产品依赖外部绝对路径。
+- 校验package URI、mesh bounds和打包资源探针。
 
-本单元保持Observer只读，3D仅标记后续能力，不实现控制页面。
+本单元不连接硬件，不实现运动学、3D渲染或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。
