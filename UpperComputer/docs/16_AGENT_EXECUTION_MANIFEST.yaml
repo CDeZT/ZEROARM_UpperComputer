@@ -117,7 +117,7 @@ units:
 
   - id: 3
     name: transport_contract_and_mock
-    status: pending
+    status: completed
     depends_on: [1, 2]
     creates: [transport_protocol, memory_duplex, deterministic_mock, fault_injection]
     verifies: [transport_contract, seeded_replay, bounded_queues, disconnect_scenarios]
@@ -125,7 +125,7 @@ units:
 
   - id: 4
     name: serial_transport_and_discovery
-    status: blocked_by_dependency
+    status: pending
     depends_on: [3]
     creates: [serial_worker, port_discovery, cancellation, write_queue]
     verifies: [contract_suite, fake_serial, open_close_cancel, permission_and_disconnect]

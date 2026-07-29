@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：V1命令Codec完成
-已完成实施单元：单元0～2
+阶段：Transport契约与Mock完成
+已完成实施单元：单元0～3
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元3 Transport契约与Mock
+下一审查单元：单元4 Serial Transport与发现
 编码执行者：Kilo
 ```
 
@@ -36,6 +36,9 @@
 - 已实现HELLO、GET_STATE、result、joint mask和SET_JOINT_TARGET V1 Codec。
 - 60字节状态按明确小端偏移解码，28字节目标按明确大端字段编码；未知线上值保留。
 - 单元2完成时ruff、mypy和45项pytest通过。
+- 已建立bytes-only Transport契约、订阅生命周期和不可变链路统计。
+- MockDevice真实解析V1请求bytes并生成60字节状态，支持确定性运动和字节级故障注入。
+- 单元3完成时ruff、mypy和52项pytest通过。
 
 ## 待审批
 
@@ -45,14 +48,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元3：
+当前连续Demo授权的下一单元为单元4：
 
-- Transport bytes契约和有界写队列。
-- 内存双工链路与确定性MockDevice。
-- Mock必须真实消费和返回V1 bytes。
-- 延迟、掉线、CRC、噪声、重复和截断故障注入。
+- pyserial worker与有界写队列。
+- 串口发现、VID/PID和描述。
+- fake serial下打开、关闭、读取消、部分写和断线测试。
 
-本单元不得依赖PySide6或pyserial，不实现串口、Session、3D或控制页面。
+本单元不发送任何真实协议命令，不实现Session、3D或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

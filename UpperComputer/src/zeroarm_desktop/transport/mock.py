@@ -1,0 +1,98 @@
+"""In-process transport backed by a real byte-level V1 mock device."""
+
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from threading import RLock
+
+from zeroarm_desktop.domain.errors import TransportDisconnected
+from zeroarm_desktop.transport.base import (
+    CallbackRegistry,
+    LinkState,
+    LinkStateEvent,
+    Subscription,
+    TransportStatistics,
+)
+from zeroarm_desktop.transport.mock_device import MockDevice, MockFaults
+
+
+@dataclass(frozen=True, slots=True)
+class MockSettings:
+    seed: int = 0
+    faults: MockFaults = field(default_factory=MockFaults)
+
+
+class MockTransport:
+    """A deterministic Transport implementation for tests and demos."""
+
+    def __init__(self, settings: MockSettings | None = None) -> None:
+        self.settings = settings or MockSettings()
+        self._device = MockDevice(faults=self.settings.faults)
+        self._state = LinkState.CLOSED
+        self._statistics = TransportStatistics()
+        self._bytes_callbacks = CallbackRegistry()
+        self._state_callbacks = CallbackRegistry()
+        self._lock = RLock()
+
+    @property
+    def state(self) -> LinkState:
+        with self._lock:
+            return self._state
+
+    @property
+    def statistics(self) -> TransportStatistics:
+        with self._lock:
+            return self._statistics
+
+    def open(self) -> None:
+        with self._lock:
+            if self._state is LinkState.OPEN:
+                return
+        self._set_state(LinkState.OPENING)
+        self._set_state(LinkState.OPEN)
+
+    def close(self, timeout_s: float = 2.0) -> None:
+        del timeout_s
+        with self._lock:
+            if self._state is LinkState.CLOSED:
+                return
+        self._set_state(LinkState.CLOSING)
+        self._set_state(LinkState.CLOSED)
+
+    def write(self, data: bytes) -> None:
+        if not isinstance(data, bytes):
+            raise TypeError("transport data must be bytes")
+        owned = bytes(data)
+        with self._lock:
+            if self._state is not LinkState.OPEN:
+                raise TransportDisconnected("mock transport is not open")
+            current = self._statistics
+            self._statistics = TransportStatistics(
+                bytes_rx=current.bytes_rx,
+                bytes_tx=current.bytes_tx + len(owned),
+                writes_accepted=current.writes_accepted + 1,
+                queue_rejections=current.queue_rejections,
+                disconnects=current.disconnects,
+            )
+        for response in self._device.receive(owned):
+            with self._lock:
+                current = self._statistics
+                self._statistics = TransportStatistics(
+                    bytes_rx=current.bytes_rx + len(response),
+                    bytes_tx=current.bytes_tx,
+                    writes_accepted=current.writes_accepted,
+                    queue_rejections=current.queue_rejections,
+                    disconnects=current.disconnects,
+                )
+            self._bytes_callbacks.publish(response)
+
+    def subscribe_bytes(self, callback: Callable[[bytes], None]) -> Subscription:
+        return self._bytes_callbacks.subscribe(callback)
+
+    def subscribe_state(self, callback: Callable[[LinkStateEvent], None]) -> Subscription:
+        return self._state_callbacks.subscribe(callback)
+
+    def _set_state(self, state: LinkState) -> None:
+        with self._lock:
+            previous = self._state
+            self._state = state
+        self._state_callbacks.publish(LinkStateEvent(previous, state))
