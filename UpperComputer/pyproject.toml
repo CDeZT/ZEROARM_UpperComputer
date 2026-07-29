@@ -25,6 +25,7 @@ zeroarm-desktop = "zeroarm_desktop.bootstrap:main"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.131,<7",
     "mypy>=1.15,<2",
     "pytest>=8.3,<9",
     "pytest-qt>=4.4,<5",

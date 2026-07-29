@@ -12,7 +12,7 @@
 | FR-TCH 示教 | 17、25/26、31D | Mock状态机、协议、支撑真机测试 |
 | FR-TRJ 轨迹 | 15～16、31E | property、scheduler、真机延期 |
 | FR-CAL 标定/Homing | 19、25/26、31C | schema、Mock limit、真机延期 |
-| FR-DIA 诊断 | 1～6、20、26 | parser、统计、导出 |
+| FR-DIA 诊断 | 1～6、20、26 | `protocol/stream_parser.py`、`test_stream_parser.py`、统计、导出 |
 | FR-DAT 数据 | 6、15、17、22 | migration、roundtrip、load |
 | FR-FWU 固件升级 | 23、30 | process fake、刷写verify、HELLO |
 | FR-AUT 手柄/Recipe | 21～22 | input、SafetyGate、runner |
@@ -25,7 +25,7 @@
 | NFR-002 | latest snapshot + 60 FPS throttle | PERF-001 |
 | NFR-003 | 全部队列有界 | 长稳队列指标 |
 | NFR-004 | UnknownOutcome、禁止危险重试 | Session/Safety测试 |
-| NFR-005 | Domain/codec无GUI依赖 | 纯pytest |
+| NFR-005 | `protocol/crc8.py`、`frame_codec.py`、`stream_parser.py`无GUI依赖 | 协议纯pytest和Hypothesis测试 |
 | NFR-006 | PyInstaller onedir | 干净Windows烟雾 |
 | NFR-007 | monotonic + wall + device time | 数据roundtrip |
 | NFR-008 | schema migrations | 升级测试 |

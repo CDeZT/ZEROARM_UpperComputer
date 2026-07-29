@@ -353,5 +353,5 @@ Mock不能绕过真实Domain/SafetyGate；只替换Transport另一端。
 
 ## 14. 当前下一步
 
-单元0工程基线已完成。其他编码Agent收到README的一句话入口后，只执行
-`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元1：纯协议基础。
+单元0工程基线和单元1纯协议基础已完成。其他编码Agent收到README的一句话入口后，
+只执行`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元2：V1命令Codec。

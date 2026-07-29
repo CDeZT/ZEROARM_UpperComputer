@@ -101,7 +101,7 @@ units:
 
   - id: 1
     name: pure_v1_frame_protocol
-    status: pending
+    status: completed
     depends_on: [0]
     creates: [crc8, frame_encoder, incremental_parser, golden_fixtures]
     verifies: [unit, hypothesis_random_chunking, noise_crc_etx_length_boundaries]
@@ -109,7 +109,7 @@ units:
 
   - id: 2
     name: v1_command_codec
-    status: blocked_by_dependency
+    status: pending
     depends_on: [1]
     creates: [hello_codec, state_60_byte_decoder, result_codec, joint_target_encoder]
     verifies: [all_command_lengths, mixed_endian_vectors, unknown_enum_preservation]

@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：工程基线完成
-已完成实施单元：单元0 工程基线
+阶段：V1纯帧协议完成
+已完成实施单元：单元0 工程基线；单元1 纯协议基础
 当前应用版本：0.1.0
-上位机源码：已创建最小Python/PySide6工程
-下一审查单元：单元1 纯协议基础
+上位机源码：工程基线及纯V1帧协议已创建
+下一审查单元：单元2 V1命令Codec
 编码执行者：Kilo
 ```
 
@@ -29,6 +29,10 @@
 - 最小离线窗口不连接串口、不加载模型且不发送硬件命令。
 - ruff格式/lint、mypy严格类型检查和2项pytest-qt测试已通过。
 - 独立虚拟环境锁定安装和离屏GUI事件循环启动/退出已通过。
+- 已实现Dallas/Maxim CRC8、V1完整帧编码/校验和有界增量stream parser。
+- MCU当前协议源码已逐项核对，HELLO请求/响应和result响应黄金帧已固化并记录哈希。
+- 23项pytest通过，覆盖Hypothesis随机分块、粘包拆包、噪声、CRC、ETX、非法LEN、
+  重置恢复、最大payload和固定种子百万字节输入。
 
 ## 待审批
 
@@ -38,15 +42,15 @@
 
 ## 下一轮边界
 
-若用户要求继续上位机，只执行单元1：
+若用户要求继续上位机，只执行单元2：
 
-- Dallas/Maxim CRC8。
-- V1 frame encoder。
-- 增量stream parser。
-- 长度、CRC、ETX、噪声、分包和随机字节流测试。
-- MCU源码事实和黄金帧fixture对照。
+- HELLO、GET_STATE、动作result和SET_JOINT_TARGET Codec。
+- 当前60字节状态逐偏移小端解码。
+- 28字节目标逐字段大端编码。
+- 未知enum/result保留原始数值。
+- 补齐单元2标准fixture和边界测试。
 
-本单元不得依赖PySide6或pyserial，不实现命令Codec、串口、3D或控制页面。
+本单元不得依赖PySide6或pyserial，不实现Transport、串口、3D或控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

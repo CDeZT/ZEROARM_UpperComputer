@@ -47,4 +47,5 @@ uv run pytest -q
 - 运行时和开发依赖声明在 `pyproject.toml`。
 - `uv.lock` 必须随依赖变更一同提交。
 - 更新依赖使用 `uv lock --upgrade-package <package>`，随后运行全部质量检查。
-- 本单元仅引入 PySide6、测试和静态检查工具；后续依赖按对应实施单元添加。
+- 当前引入 PySide6、测试、静态检查和 Hypothesis 性质测试工具；后续依赖按对应
+  实施单元添加。
