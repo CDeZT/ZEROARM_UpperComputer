@@ -105,7 +105,12 @@ class ConnectionPage(QWidget):
             self.session_changed.emit(None)
             return
         try:
-            session = DeviceSession(self._make_transport(), poll_rate_hz=self._selected_poll_rate())
+            transport = self._make_transport()
+            session = DeviceSession(
+                transport,
+                poll_rate_hz=self._selected_poll_rate(),
+                actions_allowed=isinstance(transport, MockTransport),
+            )
             session.subscribe_events(self._session_event_received.emit)
             self.session = session
             self.session_changed.emit(session)

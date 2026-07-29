@@ -21,12 +21,12 @@ def test_gui_shell_navigates_real_page_stack(qtbot: QtBot) -> None:
     assert window.page_stack.currentWidget().objectName() == "page_joint_monitor"
 
 
-def test_gui_shell_global_stop_is_visible_and_disabled(qtbot: QtBot) -> None:
+def test_gui_shell_global_stop_is_visible_and_mock_scoped(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
     stop = window.findChild(QPushButton, "global_stop_button")
     assert stop is not None
-    assert not stop.isEnabled()
+    assert stop.isEnabled()
     assert "非急停" in stop.text()
 
 

@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：统一SafetyGate完成
-已完成实施单元：单元0～13
+阶段：3D Mock手动控制里程碑完成
+已完成实施单元：单元0～14
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元14 Mock手动关节控制
+下一审查单元：单元15 轨迹Domain与编辑器
 编码执行者：Kilo
 ```
 
@@ -73,6 +73,10 @@
 - 已实现纯SafetyGate、命令分级、全部拒绝原因、preview hash和5秒ArmContext。
 - CommandService执行前重新核验token、hash、generation、校准、命令族和轴mask。
 - SafetyGate核心143 statements/42 branches均达到100%覆盖；全量105项pytest通过。
+- 已实现`page_manual_joint`相对/绝对预览、5秒Arm、Mock发送和最高50 Hz hold-to-run。
+- release、窗口失焦、导航、全局软件STOP、断线和shutdown均撤销hold/Arm且不自动恢复。
+- Mock动作通过SafetyGate、DeviceSession、V1 SET_JOINT_TARGET bytes和GET_STATE反馈闭环。
+- 原生GUI烟雾完成generation 1→2并生成93,699字节3D截图；全量110项pytest通过。
 
 ## 待审批
 
@@ -82,13 +86,13 @@
 
 ## 下一轮边界
 
-当前连续GUI里程碑的下一单元为单元14：
+若继续按Manifest开发，下一单元为单元15：
 
-- `page_manual_joint`绝对/相对目标与六轴预览。
-- ghost预览、Arm/发送、hold-to-run和失焦/断线停止。
-- Mock E2E必须经过SafetyGate、DeviceSession和V1 bytes。
+- 版本化Trajectory schema、表格、曲线和时间线编辑。
+- 验证、插值、重采样、平滑和undo/redo。
+- 与3D ghost联动但不发送真实硬件动作。
 
-仅允许Mock动作；真实Serial保持只读，不发送任何动作命令。
+仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

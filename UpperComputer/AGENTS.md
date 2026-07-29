@@ -353,5 +353,5 @@ Mock不能绕过真实Domain/SafetyGate；只替换Transport另一端。
 
 ## 14. 当前下一步
 
-上位机单元0～10已完成。其他编码Agent收到README的一句话入口后，只执行
-`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元11：关节映射与FK。
+上位机单元0～14已完成。其他编码Agent收到README的一句话入口后，只执行
+`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元15：轨迹Domain与编辑器。

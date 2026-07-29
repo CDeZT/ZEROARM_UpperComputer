@@ -3,9 +3,10 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QEvent, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -16,11 +17,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zeroarm_desktop.domain.safety import AppMode
 from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
+from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
+from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
 from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
@@ -85,10 +89,18 @@ class MainWindow(QMainWindow):
             RobotSceneBuilder(UrdfForwardKinematics(urdf))
         )
         self.connection_page.session_changed.connect(self.workspace_view_model.bind_session)
+        self.manual_view_model = ManualJointViewModel(self.connection_page)
+        self.manual_view_model.ghost_target_changed.connect(
+            self.workspace_view_model.set_ghost_target
+        )
+        self.connection_page.session_changed.connect(
+            lambda session: self.manual_view_model.stop_hold("connection_changed")
+        )
         self.register_page("connection", self.connection_page)
         self.register_page("dashboard", DashboardPage(self.snapshot_view_model))
         self.register_page("joint_monitor", JointMonitorPage(self.snapshot_view_model))
         self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
+        self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -102,6 +114,8 @@ class MainWindow(QMainWindow):
         self._pages[route] = self.page_stack.addWidget(page)
 
     def navigate(self, route: str) -> None:
+        if self.page_stack.currentWidget() is not None and route != "manual_joint":
+            self.manual_view_model.stop_hold("navigation")
         index = self._pages[route]
         self.page_stack.setCurrentIndex(index)
         for name, button in self._buttons.items():
@@ -140,10 +154,15 @@ class MainWindow(QMainWindow):
         ):
             badge.setProperty("class", "badge")
             layout.addWidget(badge)
-        stop = QPushButton("软件停止尚未启用 (非急停)")
-        stop.setObjectName("global_stop_button")
-        stop.setEnabled(False)
-        layout.addWidget(stop)
+        self.mode_selector = QComboBox()
+        self.mode_selector.setObjectName("mode_selector")
+        self.mode_selector.addItems(["Observer", "Operator"])
+        self.mode_selector.currentTextChanged.connect(self._mode_changed)
+        layout.addWidget(self.mode_selector)
+        self.stop_button = QPushButton("停止Mock点动 (软件停止 / 非急停)")
+        self.stop_button.setObjectName("global_stop_button")
+        self.stop_button.clicked.connect(lambda: self.manual_view_model.stop_hold("global_stop"))
+        layout.addWidget(self.stop_button)
         return header
 
     def _build_navigation(self) -> QFrame:
@@ -157,6 +176,7 @@ class MainWindow(QMainWindow):
             ("dashboard", "系统总览"),
             ("joint_monitor", "六轴监控"),
             ("workspace_3d", "3D 工作区"),
+            ("manual_joint", "手动关节 (Mock)"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")
@@ -187,6 +207,11 @@ class MainWindow(QMainWindow):
         current = self.styleSheet()
         self.setStyleSheet(LIGHT_THEME if current == DARK_THEME else DARK_THEME)
 
+    def _mode_changed(self, text: str) -> None:
+        mode = AppMode.OPERATOR if text == "Operator" else AppMode.OBSERVER
+        self.manual_view_model.set_mode(mode)
+        self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
+
     def _apply_snapshot_state(self, state: SnapshotViewState) -> None:
         generation = "--" if state.generation is None else str(state.generation)
         self.snapshot_age_badge.setText(f"Snapshot #{generation}")
@@ -204,7 +229,16 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         self.snapshot_view_model.close()
         self.workspace_view_model.close()
+        self.manual_view_model.stop_hold("shutdown")
         self.connection_page.close_session()
         if self._shutdown is not None:
             self._shutdown()
         event.accept()
+
+    def event(self, event: QEvent) -> bool:
+        if event.type() in {
+            QEvent.Type.WindowDeactivate,
+            QEvent.Type.ApplicationDeactivate,
+        } and hasattr(self, "manual_view_model"):
+            self.manual_view_model.stop_hold("focus_loss")
+        return super().event(event)

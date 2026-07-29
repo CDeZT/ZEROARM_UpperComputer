@@ -6,7 +6,7 @@
 |---|---|---|
 | FR-CON 连接 | 3～5、8 | Mock/Serial contract、Session状态、`test_connection_page.py` |
 | FR-STA 状态 | 2、5、9、26 | V1 Codec、Snapshot ViewModel、`test_dashboard_monitor.py` |
-| FR-JOG 手动控制 | 13～14、31A/B | SafetyGate、Mock E2E、真机限定测试 |
+| FR-JOG 手动控制 | 13～14、31A/B | SafetyGate 100% branch、Mock V1 E2E、真机延期 |
 | FR-KIN 运动学 | 11、18、31F | 黄金姿态、IK→FK、真机延期 |
 | FR-3D 三维 | 10～12 | asset、mapping、render性能 |
 | FR-TCH 示教 | 17、25/26、31D | Mock状态机、协议、支撑真机测试 |

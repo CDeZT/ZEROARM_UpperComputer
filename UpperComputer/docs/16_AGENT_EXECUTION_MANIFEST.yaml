@@ -205,7 +205,7 @@ units:
 
   - id: 14
     name: manual_joint_control_mock
-    status: pending
+    status: completed
     depends_on: [9, 12, 13]
     creates: [absolute_relative_targets, ghost_preview, hold_to_run, stop_intent]
     verifies: [mock_e2e, focus_loss, mouse_release, disconnect, limit_denial]
@@ -213,7 +213,7 @@ units:
 
   - id: 15
     name: trajectory_domain_editor
-    status: blocked_by_dependency
+    status: pending
     depends_on: [11, 12, 13]
     creates: [trajectory_schema, validation, resampling, smoothing, undo_redo]
     verifies: [property_tests, endpoint_preservation, raw_immutable, large_trajectory]

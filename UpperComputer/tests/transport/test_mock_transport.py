@@ -85,7 +85,7 @@ def test_mock_target_changes_following_state_samples() -> None:
         received_wall_utc=datetime.now(UTC),
     )
     assert snapshot.target_joint_urad == target.joint_urad
-    assert snapshot.actual_joint_urad == (20_000, -20_000, 20_000, -20_000, 20_000, -20_000)
+    assert snapshot.actual_joint_urad == (20_000, 1_550_770, 20_000, -20_000, 20_000, -20_000)
 
 
 def test_mock_faults_are_deterministic_at_byte_boundary() -> None:

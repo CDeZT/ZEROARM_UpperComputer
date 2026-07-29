@@ -11,7 +11,7 @@ from zeroarm_desktop.domain.errors import ProtocolDecodeError, TransportError
 from zeroarm_desktop.domain.models import FirmwareIdentity, RobotSnapshot
 from zeroarm_desktop.protocol.frame_codec import ProtocolFrame
 from zeroarm_desktop.protocol.stream_parser import StreamParser
-from zeroarm_desktop.protocol.v1_codec import V1Command, V1CommandCodec
+from zeroarm_desktop.protocol.v1_codec import V1Command, V1CommandCodec, WireResult
 from zeroarm_desktop.transport.base import CallbackRegistry, LinkStateEvent, Subscription, Transport
 
 
@@ -46,17 +46,25 @@ class SessionStatistics:
 class DeviceSession:
     """Own V1 parsing and expose immutable read-only device state."""
 
-    def __init__(self, transport: Transport, *, poll_rate_hz: int = 20) -> None:
+    def __init__(
+        self,
+        transport: Transport,
+        *,
+        poll_rate_hz: int = 20,
+        actions_allowed: bool = False,
+    ) -> None:
         self._validate_poll_rate(poll_rate_hz)
         self._transport = transport
         self._codec = V1CommandCodec()
         self._parser = StreamParser()
         self._poll_rate_hz = poll_rate_hz
+        self._actions_allowed = actions_allowed
         self._state = SessionState.DISCONNECTED
         self._identity: FirmwareIdentity | None = None
         self._snapshot: RobotSnapshot | None = None
         self._statistics = SessionStatistics()
         self._expected_command: V1Command | None = None
+        self._last_result: WireResult | None = None
         self._generation = 0
         self._events = CallbackRegistry()
         self._snapshots = CallbackRegistry()
@@ -84,6 +92,10 @@ class DeviceSession:
     def statistics(self) -> SessionStatistics:
         with self._lock:
             return self._statistics
+
+    @property
+    def actions_allowed(self) -> bool:
+        return self._actions_allowed
 
     def connect(self) -> None:
         with self._lock:
@@ -134,6 +146,23 @@ class DeviceSession:
         self._increment(poll_sent=1)
         self._send(V1Command.GET_STATE, self._codec.get_state_request())
         return True
+
+    def send_joint_target(self, target: object) -> WireResult:
+        from zeroarm_desktop.domain.models import JointTarget
+
+        if not self._actions_allowed:
+            raise PermissionError("action commands are disabled for this Session")
+        if not isinstance(target, JointTarget):
+            raise TypeError("target must be JointTarget")
+        if self.state is not SessionState.READONLY_READY:
+            raise RuntimeError("Session is not ready")
+        self._last_result = None
+        self._send(V1Command.SET_JOINT_TARGET, self._codec.encode_joint_target(target))
+        result = self._last_result
+        if result is None:
+            raise RuntimeError("Mock action did not return a synchronous V1 result")
+        self.poll_once()
+        return result
 
     def subscribe_snapshots(self, callback: Callable[[RobotSnapshot], None]) -> Subscription:
         return self._snapshots.subscribe(callback)
@@ -196,6 +225,9 @@ class DeviceSession:
                 if first_snapshot:
                     self._set_state(SessionState.READONLY_READY, "V1 read-only handshake complete")
                     self._start_poller()
+                return
+            if expected is V1Command.SET_JOINT_TARGET:
+                self._last_result = self._codec.decode_result(frame)
         except ProtocolDecodeError as error:
             self._set_state(SessionState.FAULTED, str(error))
 
