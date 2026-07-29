@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
 from zeroarm_desktop.version import __version__
 
@@ -65,12 +66,9 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_status_bar())
         self.setCentralWidget(root)
 
-        self.register_page(
-            "connection",
-            _placeholder(
-                "page_connection", "连接与设备", "Mock 与 Serial 连接将在当前 Demo 中启用。"
-            ),
-        )
+        self.connection_page = ConnectionPage()
+        self.connection_page.connection_text_changed.connect(self.set_connection_text)
+        self.register_page("connection", self.connection_page)
         self.register_page(
             "dashboard",
             _placeholder("page_dashboard", "系统总览", "连接后展示只读设备状态与链路健康。"),
@@ -177,6 +175,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(LIGHT_THEME if current == DARK_THEME else DARK_THEME)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self.connection_page.close_session()
         if self._shutdown is not None:
             self._shutdown()
         event.accept()

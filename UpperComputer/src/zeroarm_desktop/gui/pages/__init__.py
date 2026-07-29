@@ -1,0 +1,1 @@
+"""Application page widgets."""

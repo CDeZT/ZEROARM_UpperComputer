@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：正式GUI Shell完成
-已完成实施单元：单元0～7
+阶段：连接页完成
+已完成实施单元：单元0～8
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元8 连接页
+下一审查单元：单元9 Dashboard与六轴监控
 编码执行者：Kilo
 ```
 
@@ -51,6 +51,9 @@
 - 已实现正式MainWindow、稳定页面路由、全局状态区、通知中心及深浅主题。
 - 全局STOP固定禁用并标记“软件停止，非急停”，没有连接任何Transport。
 - 单元7完成时ruff、mypy和72项pytest通过。
+- 已实现Mock/Serial选择、端口刷新、轮询率和Mock seed配置。
+- GUI Mock连接通过真实Session完成HELLO/GET_STATE，展示握手时间线与V1身份。
+- 单元8完成时ruff、mypy和74项pytest通过。
 
 ## 待审批
 
@@ -60,13 +63,13 @@
 
 ## 下一轮边界
 
-当前连续Demo授权的下一单元为单元8：
+当前连续Demo授权的下一单元为单元9：
 
-- Mock/Serial选择、端口刷新和连接参数。
-- Mock HELLO/GET_STATE握手时间线、连接与断开。
-- 失败握手不伪报就绪。
+- Snapshot ViewModel、六轴卡、链路和故障状态。
+- 固定容量60秒ring与target/actual/error曲线。
+- 100 Hz输入、60 FPS渲染节流和V1 Unknown显示。
 
-本单元保持Observer只读，不实现3D或控制页面。
+本单元保持Observer只读，3D仅标记后续能力，不实现控制页面。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。
