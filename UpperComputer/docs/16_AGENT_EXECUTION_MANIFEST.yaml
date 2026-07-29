@@ -109,7 +109,7 @@ units:
 
   - id: 2
     name: v1_command_codec
-    status: pending
+    status: completed
     depends_on: [1]
     creates: [hello_codec, state_60_byte_decoder, result_codec, joint_target_encoder]
     verifies: [all_command_lengths, mixed_endian_vectors, unknown_enum_preservation]
@@ -117,7 +117,7 @@ units:
 
   - id: 3
     name: transport_contract_and_mock
-    status: blocked_by_dependency
+    status: pending
     depends_on: [1, 2]
     creates: [transport_protocol, memory_duplex, deterministic_mock, fault_injection]
     verifies: [transport_contract, seeded_replay, bounded_queues, disconnect_scenarios]
