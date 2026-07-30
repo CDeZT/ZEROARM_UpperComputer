@@ -33,6 +33,15 @@
 
 用户明确回复“确认实施协议 V2”后才能修改 MCU。
 
+当前状态：
+
+```text
+单元24审批包已提交：docs/18_PROTOCOL_V2_APPROVAL_PACKAGE.md
+fixture登记：docs/protocol_v2_fixtures/README.md
+MCU未修改
+等待批准口令：确认实施协议 V2
+```
+
 ### A-002：高波特率
 
 候选为 460800 和 921600。实施前必须说明时钟误差、VCP 支持、线缆环境、

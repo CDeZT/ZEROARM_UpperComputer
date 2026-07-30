@@ -353,5 +353,5 @@ Mock不能绕过真实Domain/SafetyGate；只替换Transport另一端。
 
 ## 14. 当前下一步
 
-上位机单元0～20已完成。其他编码Agent收到README的一句话入口后，只执行
-`docs/05_IMPLEMENTATION_PLAN.md` 与manifest的单元21：手柄与Recipe (Mock)。
+上位机单元0～24已完成。协议V2审批包已提交，等待用户明确回复“确认实施协议 V2”。
+在批准前不得进入单元25修改MCU；下一可选软件单元为打包与验收相关单元。

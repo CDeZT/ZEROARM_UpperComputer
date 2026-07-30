@@ -80,7 +80,7 @@ def episode_to_json(episode: Episode) -> str:
             return [encode(item) for item in value]
         if isinstance(value, Mapping):
             return {key: encode(item) for key, item in value.items()}
-        if isinstance(value, (Episode, EpisodeStep, Observation, Action, StepResult)):
+        if isinstance(value, Episode | EpisodeStep | Observation | Action | StepResult):
             return encode(asdict(value))
         return value
 

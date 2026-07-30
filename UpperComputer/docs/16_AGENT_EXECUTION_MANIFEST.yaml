@@ -285,7 +285,7 @@ units:
 
   - id: 24
     name: protocol_v2_approval_package
-    status: pending
+    status: completed
     depends_on: [2, 5, 20]
     creates: [final_field_table, ids, endian, golden_frames, resource_and_rollback_plan]
     verifies: [document_consistency, fixture_review]
