@@ -40,6 +40,10 @@ class TrajectoryPage(QWidget):
             ("trajectory_smooth_button", "平滑", view_model.smooth),
             ("trajectory_undo_button", "撤销", view_model.undo),
             ("trajectory_redo_button", "重做", view_model.redo),
+            ("playback_start_button", "Mock回放", self._playback_start),
+            ("playback_pause_button", "暂停", view_model.pause_playback),
+            ("playback_resume_button", "继续", view_model.resume_playback),
+            ("playback_abort_button", "中止", view_model.abort_playback),
         ):
             button = QPushButton(text)
             button.setObjectName(name)
@@ -72,4 +76,14 @@ class TrajectoryPage(QWidget):
             self.view_model.select(row)
 
     def _validate(self) -> None:
-        self.status.setText(self.view_model.validation_text())
+        progress = self.view_model.playback.progress
+        self.status.setText(
+            f"{self.view_model.validation_text()} | Playback {progress.state.value} | "
+            f"sent={progress.points_sent} dropped={progress.late_points_dropped}"
+        )
+
+    def _playback_start(self) -> None:
+        try:
+            self.view_model.start_playback()
+        except (PermissionError, RuntimeError, ValueError) as error:
+            self.status.setText(str(error))

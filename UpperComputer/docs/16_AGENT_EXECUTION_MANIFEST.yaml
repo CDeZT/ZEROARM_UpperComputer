@@ -221,7 +221,7 @@ units:
 
   - id: 16
     name: playback_engine_mock
-    status: pending
+    status: completed
     depends_on: [14, 15]
     creates: [monotonic_scheduler, pause_resume_abort, late_point_drop]
     verifies: [50hz_cap, no_burst_catchup, disconnect_fault_error_injection]
@@ -229,7 +229,7 @@ units:
 
   - id: 17
     name: teach_recording_mock
-    status: blocked_by_dependency
+    status: pending
     depends_on: [13, 15, 16]
     creates: [teach_state_machine, mask_checklist, raw_recorder, review_save]
     verifies: [mock_e2e, final_sample, remains_disabled_ui, raw_processed_separation]

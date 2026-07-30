@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
         self.connection_page.session_changed.connect(
             lambda session: self.manual_view_model.stop_hold("connection_changed")
         )
-        self.trajectory_view_model = TrajectoryViewModel()
+        self.trajectory_view_model = TrajectoryViewModel(self.connection_page)
         self.trajectory_view_model.ghost_changed.connect(self.workspace_view_model.set_ghost_target)
         self.register_page("connection", self.connection_page)
         self.register_page("dashboard", DashboardPage(self.snapshot_view_model))
@@ -214,6 +214,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(LIGHT_THEME if current == DARK_THEME else DARK_THEME)
 
     def _mode_changed(self, text: str) -> None:
+        self.trajectory_view_model.abort_playback("mode_changed")
         mode = AppMode.OPERATOR if text == "Operator" else AppMode.OBSERVER
         self.manual_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
@@ -236,6 +237,7 @@ class MainWindow(QMainWindow):
         self.snapshot_view_model.close()
         self.workspace_view_model.close()
         self.manual_view_model.stop_hold("shutdown")
+        self.trajectory_view_model.abort_playback("shutdown")
         self.connection_page.close_session()
         if self._shutdown is not None:
             self._shutdown()
@@ -247,4 +249,5 @@ class MainWindow(QMainWindow):
             QEvent.Type.ApplicationDeactivate,
         } and hasattr(self, "manual_view_model"):
             self.manual_view_model.stop_hold("focus_loss")
+            self.trajectory_view_model.abort_playback("focus_loss")
         return super().event(event)

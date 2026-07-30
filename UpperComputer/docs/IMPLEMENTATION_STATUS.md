@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：轨迹Domain与编辑器完成
-已完成实施单元：单元0～15
+阶段：Mock轨迹回放完成
+已完成实施单元：单元0～16
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元16 Mock回放引擎
+下一审查单元：单元17 Mock拖动示教
 编码执行者：Kilo
 ```
 
@@ -80,6 +80,9 @@
 - 已实现版本化不可变Trajectory、JSON往返、限位/时间/速度验证和内容SHA-256。
 - 已实现线性重采样、移动平均、速度缩放、undo/redo和`page_trajectory`。
 - 表格选点、六轴曲线和3D ghost已联动；单元15全量115项pytest通过。
+- 已实现可注入monotonic时钟的PlaybackEngine、50 Hz上限和迟到点丢弃。
+- pause/resume移动时间基准，abort停止调度，禁止burst补发积压点。
+- 轨迹页Mock回放走DeviceSession与真实V1 bytes；单元16全量117项pytest通过。
 
 ## 待审批
 
@@ -89,11 +92,11 @@
 
 ## 下一轮边界
 
-当前连续里程碑的下一单元为单元16：
+当前连续里程碑的下一单元为单元17：
 
-- monotonic Mock scheduler、50 Hz上限和迟到点丢弃。
-- pause/resume/abort且不burst追赶。
-- 轨迹页回放控制和Mock V1状态闭环。
+- Mock TEACH_START/STOP状态机和有界raw recorder。
+- PC monotonic/wall时间与V1缺失时间字段。
+- review另存processed轨迹且保留parent raw hash。
 
 仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 
