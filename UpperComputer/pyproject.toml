@@ -34,6 +34,7 @@ zeroarm-desktop = "zeroarm_desktop.bootstrap:main"
 dev = [
     "hypothesis>=6.131,<7",
     "mypy>=1.15,<2",
+    "pyinstaller>=6.12,<7",
     "pytest>=8.3,<9",
     "pytest-cov>=6.1,<8",
     "pytest-qt>=4.4,<5",

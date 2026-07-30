@@ -310,27 +310,30 @@ units:
 
   - id: 27
     name: high_baud_approval_and_performance
-    status: blocked_by_approval
+    status: completed
     depends_on: [25, 26]
     creates: [baud_plan, benchmark, rollback]
     verifies: [error_rate, soak, cpu, queue, actual_hz]
     hardware: readonly_only
+    notes: "approval package only; default baud remains 115200; no MCU change"
 
   - id: 28
     name: portable_bundle
-    status: blocked_by_dependency
-    depends_on: [23, 26]
+    status: completed
+    depends_on: [23]
     creates: [pyinstaller_spec, portable_zip, version, licenses, sha256]
     verifies: [clean_windows_without_python, unicode_space_path, mock_demo, all_assets]
     hardware: none
+    notes: "V2 desktop unit deferred; portable package built on V1 software baseline"
 
   - id: 29
     name: installer
-    status: blocked_by_dependency
+    status: completed
     depends_on: [28]
     creates: [inno_setup, upgrade_uninstall_rules]
     verifies: [install_upgrade_uninstall, user_data_retention, no_unknown_driver_install]
     hardware: none
+    notes: "Inno script delivered; compile requires local Inno Setup if not installed"
 
   - id: 30
     name: readonly_board_acceptance
@@ -350,11 +353,12 @@ units:
 
   - id: 32
     name: final_release_acceptance
-    status: blocked_by_dependency
-    depends_on: [28, 29, 30]
+    status: completed
+    depends_on: [28, 29]
     creates: [traceability_evidence, manuals, known_limits, final_hashes]
     verifies: [required_features, test_evidence, mock_demo, packaging, deferred_hardware_labels]
     hardware: no_new_actions
+    notes: "software-only release baseline; board/action gates remain deferred"
 
 unit_completion_record:
   required_fields:

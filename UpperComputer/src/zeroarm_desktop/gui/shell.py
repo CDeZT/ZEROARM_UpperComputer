@@ -1,7 +1,6 @@
 """Navigation shell and stable global status surface."""
 
 from collections.abc import Callable
-from pathlib import Path
 
 from PySide6.QtCore import QEvent, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
@@ -36,6 +35,7 @@ from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
+from zeroarm_desktop.infrastructure.paths import robot_model_root
 from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
 from zeroarm_desktop.model3d.ik import NumericalIkSolver
 from zeroarm_desktop.model3d.scene import RobotSceneBuilder
@@ -93,7 +93,7 @@ class MainWindow(QMainWindow):
         self.snapshot_view_model = SnapshotViewModel()
         self.snapshot_view_model.state_changed.connect(self._apply_snapshot_state)
         self.connection_page.session_changed.connect(self.snapshot_view_model.bind_session)
-        asset_root = Path(__file__).parents[3] / "resources" / "robot_model"
+        asset_root = robot_model_root()
         urdf = asset_root / "URDF_XG_Robot_Arm_Urdf_V1_1/urdf" / "URDF_XG_Robot_Arm_Urdf_V1_1.urdf"
         kinematics = UrdfForwardKinematics(urdf)
         self.workspace_view_model = Workspace3DViewModel(RobotSceneBuilder(kinematics))
