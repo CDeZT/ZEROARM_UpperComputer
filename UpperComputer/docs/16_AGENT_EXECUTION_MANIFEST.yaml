@@ -261,7 +261,7 @@ units:
 
   - id: 21
     name: gamepad_and_recipe_mock
-    status: pending
+    status: completed
     depends_on: [13, 14, 16]
     creates: [gamepad_mapping, deadzone, focus_stop, recipe_schema_runner]
     verifies: [hold_to_run, static_recipe_check, abort, safety_gate_unification]
@@ -269,7 +269,7 @@ units:
 
   - id: 22
     name: dataset_interface
-    status: blocked_by_dependency
+    status: pending
     depends_on: [6, 15, 16, 17]
     creates: [episode_schema, observation_action_result, export]
     verifies: [time_fields, schema_roundtrip, model_action_mock_default]
