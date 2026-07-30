@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from zeroarm_desktop.domain.safety import AppMode
+from zeroarm_desktop.gui.pages.calibration import CalibrationPage
 from zeroarm_desktop.gui.pages.cartesian import CartesianPage
 from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
@@ -118,6 +119,7 @@ class MainWindow(QMainWindow):
                 self.workspace_view_model.set_ghost_target,
             ),
         )
+        self.register_page("calibration", CalibrationPage())
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -197,6 +199,7 @@ class MainWindow(QMainWindow):
             ("trajectory", "轨迹编辑器"),
             ("teach", "拖动示教 (Mock)"),
             ("cartesian", "Cartesian离线IK"),
+            ("calibration", "标定/Homing"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")

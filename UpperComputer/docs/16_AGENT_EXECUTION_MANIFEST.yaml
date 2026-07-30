@@ -245,7 +245,7 @@ units:
 
   - id: 19
     name: calibration_and_homing_wizard_mock
-    status: pending
+    status: completed
     depends_on: [6, 11, 13]
     creates: [axis_wizard, config_diff, import_export, mock_limit_sequence]
     verifies: [missing_config, timeout, cancel, audit, v1_not_configured]
@@ -253,7 +253,7 @@ units:
 
   - id: 20
     name: diagnostics_protocol_console_bundle
-    status: blocked_by_dependency
+    status: pending
     depends_on: [5, 6, 7, 13]
     creates: [frame_tree, counters, safe_form_console, diagnostic_bundle]
     verifies: [no_raw_safety_bypass, corrupt_frames, bundle_redaction]
