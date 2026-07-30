@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：Mock轨迹回放完成
-已完成实施单元：单元0～16
+阶段：Mock拖动示教完成
+已完成实施单元：单元0～17
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元17 Mock拖动示教
+下一审查单元：单元18 Cartesian与IK离线预览
 编码执行者：Kilo
 ```
 
@@ -83,6 +83,9 @@
 - 已实现可注入monotonic时钟的PlaybackEngine、50 Hz上限和迟到点丢弃。
 - pause/resume移动时间基准，abort停止调度，禁止burst补发积压点。
 - 轨迹页Mock回放走DeviceSession与真实V1 bytes；单元16全量117项pytest通过。
+- MockDevice与DeviceSession已实现V1 TEACH_START/STOP，Serial仍拒绝动作。
+- raw recorder有界保存PC monotonic/wall时间，V1 device time/seq保持None。
+- review另存processed轨迹并记录parent raw SHA-256；全量118项pytest通过。
 
 ## 待审批
 
@@ -92,11 +95,11 @@
 
 ## 下一轮边界
 
-当前连续里程碑的下一单元为单元17：
+当前连续里程碑的下一单元为单元18：
 
-- Mock TEACH_START/STOP状态机和有界raw recorder。
-- PC monotonic/wall时间与V1缺失时间字段。
-- review另存processed轨迹且保留parent raw hash。
+- 有界多起点数值IK、FK回代和限位过滤。
+- 不可达与奇异性报告、seed距离排序。
+- `page_cartesian`只更新3D ghost，禁止发送。
 
 仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 

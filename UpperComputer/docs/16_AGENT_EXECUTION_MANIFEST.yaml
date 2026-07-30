@@ -229,7 +229,7 @@ units:
 
   - id: 17
     name: teach_recording_mock
-    status: pending
+    status: completed
     depends_on: [13, 15, 16]
     creates: [teach_state_machine, mask_checklist, raw_recorder, review_save]
     verifies: [mock_e2e, final_sample, remains_disabled_ui, raw_processed_separation]
@@ -237,7 +237,7 @@ units:
 
   - id: 18
     name: cartesian_preview_ik
-    status: blocked_by_dependency
+    status: pending
     depends_on: [11, 12, 15]
     creates: [ik_solver, solution_ranking, singular_unreachable_reporting]
     verifies: [ik_fk_roundtrip, limits, golden_poses, ghost_only_enforcement]

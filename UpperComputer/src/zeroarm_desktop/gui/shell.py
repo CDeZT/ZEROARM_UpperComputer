@@ -22,6 +22,7 @@ from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
 from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
+from zeroarm_desktop.gui.pages.teach import TeachPage
 from zeroarm_desktop.gui.pages.trajectory import TrajectoryPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
@@ -106,6 +107,8 @@ class MainWindow(QMainWindow):
         self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
         self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
         self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
+        self.teach_page = TeachPage(self.connection_page)
+        self.register_page("teach", self.teach_page)
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -183,6 +186,7 @@ class MainWindow(QMainWindow):
             ("workspace_3d", "3D 工作区"),
             ("manual_joint", "手动关节 (Mock)"),
             ("trajectory", "轨迹编辑器"),
+            ("teach", "拖动示教 (Mock)"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")

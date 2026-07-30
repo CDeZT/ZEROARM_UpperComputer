@@ -54,6 +54,14 @@ class MockDevice:
             self.moving_mask = 0x3F
             self.run_state = 4
             return self._result(frame.command, V1ResultCode.OK)
+        if frame.command == V1Command.TEACH_START and len(frame.payload) == 1:
+            self.run_state = 3
+            self.enabled_mask &= ~frame.payload[0]
+            return self._result(frame.command, V1ResultCode.OK)
+        if frame.command == V1Command.TEACH_STOP and not frame.payload:
+            self.run_state = 1
+            self.target_joint_urad = self.actual_joint_urad
+            return self._result(frame.command, V1ResultCode.OK)
         return self._result(frame.command, V1ResultCode.ERR_NOT_IMPLEMENTED)
 
     def _advance_motion(self) -> None:

@@ -164,6 +164,29 @@ class DeviceSession:
         self.poll_once()
         return result
 
+    def send_teach_start(self, joint_mask: int) -> WireResult:
+        return self._send_action_result(
+            V1Command.TEACH_START,
+            self._codec.encode_joint_mask(V1Command.TEACH_START, joint_mask),
+        )
+
+    def send_teach_stop(self) -> WireResult:
+        return self._send_action_result(
+            V1Command.TEACH_STOP,
+            self._codec.encode_empty_command(V1Command.TEACH_STOP),
+        )
+
+    def _send_action_result(self, command: V1Command, data: bytes) -> WireResult:
+        if not self._actions_allowed:
+            raise PermissionError("action commands are disabled for this Session")
+        self._last_result = None
+        self._send(command, data)
+        result = self._last_result
+        if result is None:
+            raise RuntimeError("Mock action did not return a synchronous V1 result")
+        self.poll_once()
+        return result
+
     def subscribe_snapshots(self, callback: Callable[[RobotSnapshot], None]) -> Subscription:
         return self._snapshots.subscribe(callback)
 
@@ -226,7 +249,11 @@ class DeviceSession:
                     self._set_state(SessionState.READONLY_READY, "V1 read-only handshake complete")
                     self._start_poller()
                 return
-            if expected is V1Command.SET_JOINT_TARGET:
+            if expected in {
+                V1Command.SET_JOINT_TARGET,
+                V1Command.TEACH_START,
+                V1Command.TEACH_STOP,
+            }:
                 self._last_result = self._codec.decode_result(frame)
         except ProtocolDecodeError as error:
             self._set_state(SessionState.FAULTED, str(error))
