@@ -24,6 +24,7 @@ dependencies = [
     "pyqtgraph>=0.13.7,<0.15",
     "pyside6>=6.8,<6.10",
     "pyserial>=3.5,<4",
+    "scipy>=1.15,<2",
 ]
 
 [project.gui-scripts]

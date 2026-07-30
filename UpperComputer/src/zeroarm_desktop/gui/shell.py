@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from zeroarm_desktop.domain.safety import AppMode
+from zeroarm_desktop.gui.pages.cartesian import CartesianPage
 from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
@@ -31,6 +32,7 @@ from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotV
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
 from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
+from zeroarm_desktop.model3d.ik import NumericalIkSolver
 from zeroarm_desktop.model3d.scene import RobotSceneBuilder
 from zeroarm_desktop.version import __version__
 
@@ -88,9 +90,8 @@ class MainWindow(QMainWindow):
         self.connection_page.session_changed.connect(self.snapshot_view_model.bind_session)
         asset_root = Path(__file__).parents[3] / "resources" / "robot_model"
         urdf = asset_root / "URDF_XG_Robot_Arm_Urdf_V1_1/urdf" / "URDF_XG_Robot_Arm_Urdf_V1_1.urdf"
-        self.workspace_view_model = Workspace3DViewModel(
-            RobotSceneBuilder(UrdfForwardKinematics(urdf))
-        )
+        kinematics = UrdfForwardKinematics(urdf)
+        self.workspace_view_model = Workspace3DViewModel(RobotSceneBuilder(kinematics))
         self.connection_page.session_changed.connect(self.workspace_view_model.bind_session)
         self.manual_view_model = ManualJointViewModel(self.connection_page)
         self.manual_view_model.ghost_target_changed.connect(
@@ -109,6 +110,14 @@ class MainWindow(QMainWindow):
         self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
         self.teach_page = TeachPage(self.connection_page)
         self.register_page("teach", self.teach_page)
+        self.register_page(
+            "cartesian",
+            CartesianPage(
+                NumericalIkSolver(kinematics),
+                self.connection_page,
+                self.workspace_view_model.set_ghost_target,
+            ),
+        )
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -187,6 +196,7 @@ class MainWindow(QMainWindow):
             ("manual_joint", "手动关节 (Mock)"),
             ("trajectory", "轨迹编辑器"),
             ("teach", "拖动示教 (Mock)"),
+            ("cartesian", "Cartesian离线IK"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")

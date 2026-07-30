@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：Mock拖动示教完成
-已完成实施单元：单元0～17
+阶段：Cartesian与IK离线预览完成
+已完成实施单元：单元0～18
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元18 Cartesian与IK离线预览
+下一审查单元：单元19 Mock标定与Homing向导
 编码执行者：Kilo
 ```
 
@@ -86,6 +86,9 @@
 - MockDevice与DeviceSession已实现V1 TEACH_START/STOP，Serial仍拒绝动作。
 - raw recorder有界保存PC monotonic/wall时间，V1 device time/seq保持None。
 - review另存processed轨迹并记录parent raw SHA-256；全量118项pytest通过。
+- 已实现SciPy有界多起点数值IK、量化后FK回代、限位过滤和seed距离排序。
+- `page_cartesian`仅生成3D ghost，不提供发送/Arm；V1无Cartesian命令明确显示。
+- 已知姿态IK→FK误差门和显然不可达目标测试通过；全量120项pytest通过。
 
 ## 待审批
 
@@ -95,11 +98,11 @@
 
 ## 下一轮边界
 
-当前连续里程碑的下一单元为单元18：
+当前连续里程碑的下一单元为单元19：
 
-- 有界多起点数值IK、FK回代和限位过滤。
-- 不可达与奇异性报告、seed距离排序。
-- `page_cartesian`只更新3D ghost，禁止发送。
+- 版本化逐轴标定候选、checksum、diff和导入导出。
+- V1能力缺失与Mock Homing演练。
+- 保存候选与写入固件严格分离。
 
 仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 

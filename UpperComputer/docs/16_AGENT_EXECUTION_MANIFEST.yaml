@@ -237,7 +237,7 @@ units:
 
   - id: 18
     name: cartesian_preview_ik
-    status: pending
+    status: completed
     depends_on: [11, 12, 15]
     creates: [ik_solver, solution_ranking, singular_unreachable_reporting]
     verifies: [ik_fk_roundtrip, limits, golden_poses, ghost_only_enforcement]
@@ -245,7 +245,7 @@ units:
 
   - id: 19
     name: calibration_and_homing_wizard_mock
-    status: blocked_by_dependency
+    status: pending
     depends_on: [6, 11, 13]
     creates: [axis_wizard, config_diff, import_export, mock_limit_sequence]
     verifies: [missing_config, timeout, cancel, audit, v1_not_configured]
