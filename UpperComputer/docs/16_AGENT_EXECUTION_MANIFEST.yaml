@@ -253,7 +253,7 @@ units:
 
   - id: 20
     name: diagnostics_protocol_console_bundle
-    status: pending
+    status: completed
     depends_on: [5, 6, 7, 13]
     creates: [frame_tree, counters, safe_form_console, diagnostic_bundle]
     verifies: [no_raw_safety_bypass, corrupt_frames, bundle_redaction]
@@ -261,7 +261,7 @@ units:
 
   - id: 21
     name: gamepad_and_recipe_mock
-    status: blocked_by_dependency
+    status: pending
     depends_on: [13, 14, 16]
     creates: [gamepad_mapping, deadzone, focus_stop, recipe_schema_runner]
     verifies: [hold_to_run, static_recipe_check, abort, safety_gate_unification]

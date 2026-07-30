@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：Mock标定与Homing向导完成
-已完成实施单元：单元0～19
+阶段：完整离线操作台里程碑完成
+已完成实施单元：单元0～20
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元20 诊断终端与诊断包
+下一审查单元：单元21 手柄与Recipe (Mock)
 编码执行者：Kilo
 ```
 
@@ -92,6 +92,10 @@
 - 已实现版本化六轴本机标定候选、规范JSON checksum、验证和逐轴diff。
 - 标定页明确V1不支持配置读写、Homing未配置，写固件按钮永久禁用。
 - Mock HOME演练显示ERR_NOT_CONFIGURED而不伪报普通失败；全量122项pytest通过。
+- 已实现Session/Parser诊断快照、V1能力缺口说明和`page_diagnostics`。
+- `page_protocol_console`仅允许HELLO/GET_STATE，无任意HEX或Transport直写入口。
+- 脱敏诊断ZIP包含manifest和逐文件SHA-256；全量123项pytest通过。
+- 原生完整操作台烟雾遍历轨迹、示教、IK、标定、诊断、终端和3D，截图102,094字节。
 
 ## 待审批
 
@@ -101,11 +105,11 @@
 
 ## 下一轮边界
 
-当前连续里程碑的下一单元为单元20：
+若继续按Manifest开发，下一单元为单元21：
 
-- 有界诊断历史、协议解析树和链路计数。
-- 只读HELLO/GET_STATE表单终端，禁止任意HEX直发。
-- 脱敏诊断ZIP及文件SHA-256清单。
+- 手柄枚举、轴映射、deadzone和hold-to-run。
+- Recipe schema、静态检查和Mock runner。
+- 所有动作继续统一经过SafetyGate。
 
 仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 

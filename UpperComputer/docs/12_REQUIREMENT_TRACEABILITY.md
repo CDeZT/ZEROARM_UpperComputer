@@ -9,10 +9,10 @@
 | FR-JOG 手动控制 | 13～14、31A/B | SafetyGate 100% branch、Mock V1 E2E、真机延期 |
 | FR-KIN 运动学 | 11、18、31F | 黄金姿态、IK→FK、真机延期 |
 | FR-3D 三维 | 10～12 | asset、mapping、render性能 |
-| FR-TCH 示教 | 17、25/26、31D | Mock状态机、协议、支撑真机测试 |
+| FR-TCH 示教 | 17、25/26、31D | Mock V1状态机、有界raw recorder、支撑真机延期 |
 | FR-TRJ 轨迹 | 15～16、31E | property、scheduler、真机延期 |
-| FR-CAL 标定/Homing | 19、25/26、31C | schema、Mock limit、真机延期 |
-| FR-DIA 诊断 | 1～6、20、26 | `protocol/stream_parser.py`、`test_stream_parser.py`、统计、导出 |
+| FR-CAL 标定/Homing | 19、25/26、31C | 本机候选、checksum、V1能力缺口 |
+| FR-DIA 诊断 | 1～6、20、26 | parser统计、只读终端、脱敏bundle |
 | FR-DAT 数据 | 6、15、17、22 | migration、roundtrip、load |
 | FR-FWU 固件升级 | 23、30 | process fake、刷写verify、HELLO |
 | FR-AUT 手柄/Recipe | 21～22 | input、SafetyGate、runner |
