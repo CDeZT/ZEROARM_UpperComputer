@@ -22,6 +22,7 @@ from zeroarm_desktop.gui.pages.calibration import CalibrationPage
 from zeroarm_desktop.gui.pages.cartesian import CartesianPage
 from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
+from zeroarm_desktop.gui.pages.dataset import DatasetPage
 from zeroarm_desktop.gui.pages.diagnostics import DiagnosticsPage, ProtocolConsolePage
 from zeroarm_desktop.gui.pages.gamepad_recipe import GamepadRecipePage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
@@ -125,6 +126,7 @@ class MainWindow(QMainWindow):
         self.register_page("diagnostics", DiagnosticsPage(self.connection_page))
         self.register_page("protocol_console", ProtocolConsolePage(self.connection_page))
         self.register_page("gamepad_recipe", GamepadRecipePage())
+        self.register_page("dataset", DatasetPage())
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -208,6 +210,7 @@ class MainWindow(QMainWindow):
             ("diagnostics", "诊断"),
             ("protocol_console", "安全协议终端"),
             ("gamepad_recipe", "手柄/Recipe"),
+            ("dataset", "数据集"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")

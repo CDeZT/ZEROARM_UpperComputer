@@ -269,7 +269,7 @@ units:
 
   - id: 22
     name: dataset_interface
-    status: pending
+    status: completed
     depends_on: [6, 15, 16, 17]
     creates: [episode_schema, observation_action_result, export]
     verifies: [time_fields, schema_roundtrip, model_action_mock_default]
@@ -277,7 +277,7 @@ units:
 
   - id: 23
     name: firmware_update_tool
-    status: blocked_by_dependency
+    status: pending
     depends_on: [5, 6, 7]
     creates: [tool_probe, artifact_inspection, qprocess_runner, verify_reset_hello]
     verifies: [argument_array, fake_process_outputs, hash_target_sn_checks]
