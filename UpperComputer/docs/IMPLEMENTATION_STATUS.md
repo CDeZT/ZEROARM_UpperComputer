@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：3D Mock手动控制里程碑完成
-已完成实施单元：单元0～14
+阶段：轨迹Domain与编辑器完成
+已完成实施单元：单元0～15
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元15 轨迹Domain与编辑器
+下一审查单元：单元16 Mock回放引擎
 编码执行者：Kilo
 ```
 
@@ -77,6 +77,9 @@
 - release、窗口失焦、导航、全局软件STOP、断线和shutdown均撤销hold/Arm且不自动恢复。
 - Mock动作通过SafetyGate、DeviceSession、V1 SET_JOINT_TARGET bytes和GET_STATE反馈闭环。
 - 原生GUI烟雾完成generation 1→2并生成93,699字节3D截图；全量110项pytest通过。
+- 已实现版本化不可变Trajectory、JSON往返、限位/时间/速度验证和内容SHA-256。
+- 已实现线性重采样、移动平均、速度缩放、undo/redo和`page_trajectory`。
+- 表格选点、六轴曲线和3D ghost已联动；单元15全量115项pytest通过。
 
 ## 待审批
 
@@ -86,11 +89,11 @@
 
 ## 下一轮边界
 
-若继续按Manifest开发，下一单元为单元15：
+当前连续里程碑的下一单元为单元16：
 
-- 版本化Trajectory schema、表格、曲线和时间线编辑。
-- 验证、插值、重采样、平滑和undo/redo。
-- 与3D ghost联动但不发送真实硬件动作。
+- monotonic Mock scheduler、50 Hz上限和迟到点丢弃。
+- pause/resume/abort且不burst追赶。
+- 轨迹页回放控制和Mock V1状态闭环。
 
 仅允许Mock轨迹开发；真实Serial保持只读，不发送任何动作命令。
 

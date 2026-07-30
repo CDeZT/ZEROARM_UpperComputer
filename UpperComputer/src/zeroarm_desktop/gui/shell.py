@@ -22,10 +22,12 @@ from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.pages.dashboard import DashboardPage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
 from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
+from zeroarm_desktop.gui.pages.trajectory import TrajectoryPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
 from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
+from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
 from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
 from zeroarm_desktop.model3d.scene import RobotSceneBuilder
@@ -96,11 +98,14 @@ class MainWindow(QMainWindow):
         self.connection_page.session_changed.connect(
             lambda session: self.manual_view_model.stop_hold("connection_changed")
         )
+        self.trajectory_view_model = TrajectoryViewModel()
+        self.trajectory_view_model.ghost_changed.connect(self.workspace_view_model.set_ghost_target)
         self.register_page("connection", self.connection_page)
         self.register_page("dashboard", DashboardPage(self.snapshot_view_model))
         self.register_page("joint_monitor", JointMonitorPage(self.snapshot_view_model))
         self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
         self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
+        self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -177,6 +182,7 @@ class MainWindow(QMainWindow):
             ("joint_monitor", "六轴监控"),
             ("workspace_3d", "3D 工作区"),
             ("manual_joint", "手动关节 (Mock)"),
+            ("trajectory", "轨迹编辑器"),
         ):
             button = QPushButton(text)
             button.setObjectName(f"nav_{route}")

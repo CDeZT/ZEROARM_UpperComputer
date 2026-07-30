@@ -1,0 +1,75 @@
+"""Versioned trajectory table, timeline, processing, and ghost page."""
+
+import pyqtgraph as pg  # type: ignore[import-untyped]
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from zeroarm_desktop.domain.trajectory import Trajectory
+from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
+
+
+class TrajectoryPage(QWidget):
+    def __init__(self, view_model: TrajectoryViewModel) -> None:
+        super().__init__()
+        self.setObjectName("page_trajectory")
+        self.view_model = view_model
+        title = QLabel("轨迹编辑器")
+        title.setObjectName("page_title")
+        self.table = QTableWidget()
+        self.table.setObjectName("trajectory_table")
+        self.table.setColumnCount(8)
+        self.table.setHorizontalHeaderLabels(("t(s)", "J1", "J2", "J3", "J4", "J5", "J6", "Grip"))
+        self.table.currentCellChanged.connect(
+            lambda row, column, old_row, old_column: self._select(row)
+        )
+        self.plot = pg.PlotWidget()
+        self.plot.setObjectName("trajectory_plot")
+        self.status = QLabel()
+        self.status.setObjectName("trajectory_status")
+        buttons = QHBoxLayout()
+        for name, text, operation in (
+            ("trajectory_validate_button", "验证", self._validate),
+            ("trajectory_resample_button", "重采样 10Hz", view_model.resample),
+            ("trajectory_smooth_button", "平滑", view_model.smooth),
+            ("trajectory_undo_button", "撤销", view_model.undo),
+            ("trajectory_redo_button", "重做", view_model.redo),
+        ):
+            button = QPushButton(text)
+            button.setObjectName(name)
+            button.clicked.connect(operation)
+            buttons.addWidget(button)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.addWidget(title)
+        layout.addLayout(buttons)
+        layout.addWidget(self.table, 1)
+        layout.addWidget(self.plot, 1)
+        layout.addWidget(self.status)
+        view_model.changed.connect(self.apply_trajectory)
+        self.apply_trajectory(view_model.trajectory)
+
+    def apply_trajectory(self, trajectory: Trajectory) -> None:
+        self.table.setRowCount(len(trajectory.points))
+        self.plot.clear()
+        times = [point.time_ns / 1e9 for point in trajectory.points]
+        for row, point in enumerate(trajectory.points):
+            values = (f"{point.time_ns / 1e9:.3f}", *point.joint_urad, point.gripper_u16)
+            for column, value in enumerate(values):
+                self.table.setItem(row, column, QTableWidgetItem(str(value)))
+        for axis in range(6):
+            self.plot.plot(times, [point.joint_urad[axis] for point in trajectory.points])
+        self._validate()
+
+    def _select(self, row: int) -> None:
+        if 0 <= row < len(self.view_model.trajectory.points):
+            self.view_model.select(row)
+
+    def _validate(self) -> None:
+        self.status.setText(self.view_model.validation_text())
