@@ -3,11 +3,11 @@
 ## 当前状态
 
 ```text
-阶段：数据集接口完成
-已完成实施单元：单元0～22
+阶段：固件升级工具完成
+已完成实施单元：单元0～23
 当前应用版本：0.1.0
 上位机源码：工程基线及纯V1帧协议已创建
-下一审查单元：单元23 固件升级工具
+下一审查单元：单元24 协议V2审批包
 编码执行者：Kilo
 ```
 
@@ -99,6 +99,9 @@
 - 已实现手柄轴映射、deadzone、hold/失焦停止和`page_gamepad_recipe`。
 - 已实现版本化Recipe schema、静态检查、JSON往返和Mock runner abort。
 - 单元21完成时ruff、mypy和125项pytest通过。
+- 已实现Episode/Observation/Action/Result schema、时间源字段和导出接口。
+- 模型动作默认target_transport=mock，Serial动作数据会被验证拒绝。
+- 单元22完成时ruff、mypy和126项pytest通过。
 
 ## 待审批
 
@@ -108,13 +111,13 @@
 
 ## 下一轮边界
 
-当前连续里程碑的下一单元为单元22：
+当前连续里程碑的下一单元为单元23：
 
-- Episode/observation/action/result schema。
-- JSON/CSV/NPZ导出选项。
-- 模型动作默认只进入Mock。
+- 固定参数调用STM32CubeProgrammer。
+- 固件文件、哈希、目标和SN校验。
+- 假进程成功/失败输出与reset后HELLO。
 
-仅允许Mock数据开发；真实Serial保持只读，不发送任何动作命令。
+仅允许工具链模拟；真实刷写需用户后续明确授权。
 
 若当前任务继续MCU修复，按`13_MCU_REMEDIATION_PLAN.md`选择一个尚未完成的
 软件问题，先以失败测试固定语义，完成验证和独立提交后停止，不执行危险动作。

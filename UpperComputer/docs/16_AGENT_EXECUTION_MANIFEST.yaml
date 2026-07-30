@@ -277,7 +277,7 @@ units:
 
   - id: 23
     name: firmware_update_tool
-    status: pending
+    status: completed
     depends_on: [5, 6, 7]
     creates: [tool_probe, artifact_inspection, qprocess_runner, verify_reset_hello]
     verifies: [argument_array, fake_process_outputs, hash_target_sn_checks]
@@ -285,7 +285,7 @@ units:
 
   - id: 24
     name: protocol_v2_approval_package
-    status: blocked_by_dependency
+    status: pending
     depends_on: [2, 5, 20]
     creates: [final_field_table, ids, endian, golden_frames, resource_and_rollback_plan]
     verifies: [document_consistency, fixture_review]
