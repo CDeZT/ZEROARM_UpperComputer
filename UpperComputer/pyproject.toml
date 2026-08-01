@@ -52,6 +52,8 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# 中文 UI 文案使用全角标点属于项目规范，允许这些字符进入字符串字面量。
+allowed-confusables = ["，", "。", "；", "：", "！", "？", "·", "≠", "（", "）"]
 
 [tool.mypy]
 python_version = "3.12"

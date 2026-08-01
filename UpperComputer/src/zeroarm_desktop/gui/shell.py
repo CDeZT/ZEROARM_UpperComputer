@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.application.performance import PerformanceSampler
 from zeroarm_desktop.application.session_recording import SessionRecordingBridge
+from zeroarm_desktop.cli import LaunchOptions
 from zeroarm_desktop.domain.evidence import EvidenceLog, OutcomeStatus, make_evidence
 from zeroarm_desktop.domain.safety import AppMode
 from zeroarm_desktop.gui.pages.calibration import CalibrationPage
@@ -84,6 +85,7 @@ class MainWindow(QMainWindow):
         shutdown: Callable[[], None] | None = None,
         confirm_fault_exit: Callable[[str, str], bool] | None = None,
         session_database_path: Path | None = None,
+        launch_options: LaunchOptions | None = None,
     ) -> None:
         super().__init__()
         self._shutdown = shutdown
@@ -92,6 +94,8 @@ class MainWindow(QMainWindow):
             if confirm_fault_exit is not None
             else self._default_fault_exit_confirm
         )
+        self.launch_options = launch_options or LaunchOptions()
+        self._theme_name = "dark"
         self._pages: dict[str, int] = {}
         self._buttons: dict[str, QPushButton] = {}
         self.evidence_log = EvidenceLog()
@@ -101,6 +105,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"ZeroArm Desktop {__version__}")
         self.setMinimumSize(1280, 720)
         self.resize(1440, 900)
+        if self.launch_options.reset_layout:
+            self.setGeometry(80, 60, 1440, 900)
 
         root = QWidget()
         root_layout = QVBoxLayout(root)
@@ -118,7 +124,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_status_bar())
         self.setCentralWidget(root)
 
-        self.connection_page = ConnectionPage()
+        self.connection_page = ConnectionPage(prefer_mock=True)
         self.connection_page.connection_text_changed.connect(self.set_connection_text)
         self.snapshot_view_model = SnapshotViewModel()
         self.snapshot_view_model.state_changed.connect(self._apply_snapshot_state)
@@ -142,7 +148,19 @@ class MainWindow(QMainWindow):
         self.register_page("connection", self.connection_page)
         self.register_page("dashboard", self.dashboard_page)
         self.register_page("joint_monitor", JointMonitorPage(self.snapshot_view_model))
-        self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
+        if self.launch_options.safe_mode:
+            self.register_page(
+                "workspace_3d",
+                _placeholder(
+                    "page_workspace_3d",
+                    "3D 工作区 (Safe Mode)",
+                    "safe-mode 已禁用 3D / OpenGL 重型页面，便于排查启动与资源问题。",
+                ),
+            )
+        else:
+            self.register_page(
+                "workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root)
+            )
         self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
         self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
         self.teach_view_model = TeachViewModel(self.connection_page)
@@ -197,6 +215,8 @@ class MainWindow(QMainWindow):
         self._metrics_timer.start()
         self.navigate("connection")
         self.apply_theme("dark")
+        if self.launch_options.safe_mode:
+            self.notification_center.setText("Safe Mode | 3D 已降级 | Serial 动作仍禁用")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
         shortcut.activated.connect(lambda: self.navigate("connection"))
 
@@ -219,6 +239,7 @@ class MainWindow(QMainWindow):
     def apply_theme(self, theme: str) -> None:
         if theme not in {"dark", "light"}:
             raise ValueError("theme must be dark or light")
+        self._theme_name = theme
         self.setStyleSheet(DARK_THEME if theme == "dark" else LIGHT_THEME)
 
     def set_connection_text(self, text: str) -> None:
@@ -228,9 +249,15 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("header")
         layout = QHBoxLayout(header)
+        layout.setContentsMargins(16, 10, 16, 10)
         product = QLabel(f"ZEROARM DESKTOP  {__version__}")
+        product.setObjectName("product_title")
         product.setStyleSheet("font-size: 18px; font-weight: 800;")
         layout.addWidget(product)
+        profile = QLabel("V1 · profile 0x1D · Serial 默认只读")
+        profile.setObjectName("profile_chip")
+        profile.setStyleSheet("color: #9fb0bc; padding-left: 12px;")
+        layout.addWidget(profile)
         layout.addStretch()
         self.connection_badge = QLabel("未连接")
         self.connection_badge.setObjectName("connection_badge")
@@ -253,8 +280,9 @@ class MainWindow(QMainWindow):
         self.mode_selector.addItems(["Observer", "Operator"])
         self.mode_selector.currentTextChanged.connect(self._mode_changed)
         layout.addWidget(self.mode_selector)
-        self.stop_button = QPushButton("停止Mock点动 (软件停止 / 非急停)")
+        self.stop_button = QPushButton("软件停止 · 非急停")
         self.stop_button.setObjectName("global_stop_button")
+        self.stop_button.setToolTip("仅停止 Mock 点动/回放等软件动作，不是物理急停")
         self.stop_button.clicked.connect(lambda: self.manual_view_model.stop_hold("global_stop"))
         layout.addWidget(self.stop_button)
         return header
@@ -262,35 +290,57 @@ class MainWindow(QMainWindow):
     def _build_navigation(self) -> QFrame:
         navigation = QFrame()
         navigation.setObjectName("navigation")
-        navigation.setFixedWidth(220)
+        navigation.setFixedWidth(236)
         layout = QVBoxLayout(navigation)
-        layout.setContentsMargins(18, 24, 18, 24)
-        for route, text in (
-            ("connection", "连接与设备"),
-            ("dashboard", "系统总览"),
-            ("joint_monitor", "六轴监控"),
-            ("workspace_3d", "3D 工作区"),
-            ("manual_joint", "手动关节 (Mock)"),
-            ("trajectory", "轨迹编辑器"),
-            ("teach", "拖动示教 (Mock)"),
-            ("cartesian", "Cartesian离线IK"),
-            ("calibration", "标定"),
-            ("home", "回零向导 (Mock)"),
-            ("diagnostics", "诊断"),
-            ("protocol_console", "安全协议终端"),
-            ("gripper", "夹爪/台架只读"),
-            ("gamepad_recipe", "手柄/Recipe"),
-            ("dataset", "数据集"),
-            ("firmware", "固件升级"),
-        ):
-            button = QPushButton(text)
-            button.setObjectName(f"nav_{route}")
-            button.setCheckable(True)
-            button.clicked.connect(lambda checked=False, name=route: self.navigate(name))
-            self._buttons[route] = button
-            layout.addWidget(button)
+        layout.setContentsMargins(14, 18, 14, 18)
+        layout.setSpacing(6)
+        groups = (
+            (
+                "设备",
+                (
+                    ("connection", "连接与设备"),
+                    ("dashboard", "系统总览"),
+                    ("joint_monitor", "六轴监控"),
+                    ("workspace_3d", "3D 工作区"),
+                ),
+            ),
+            (
+                "操作 (Mock)",
+                (
+                    ("manual_joint", "手动关节"),
+                    ("trajectory", "轨迹编辑器"),
+                    ("teach", "拖动示教"),
+                    ("home", "回零向导"),
+                    ("calibration", "标定"),
+                    ("cartesian", "Cartesian 离线 IK"),
+                ),
+            ),
+            (
+                "诊断与数据",
+                (
+                    ("diagnostics", "诊断"),
+                    ("protocol_console", "安全协议终端"),
+                    ("gripper", "夹爪/台架只读"),
+                    ("gamepad_recipe", "手柄 / Recipe"),
+                    ("dataset", "数据集"),
+                    ("firmware", "固件升级"),
+                ),
+            ),
+        )
+        for group_title, items in groups:
+            heading = QLabel(group_title)
+            heading.setStyleSheet("color: #7f93a1; font-size: 11px; padding: 8px 4px 2px 4px;")
+            layout.addWidget(heading)
+            for route, text in items:
+                button = QPushButton(text)
+                button.setObjectName(f"nav_{route}")
+                button.setCheckable(True)
+                button.clicked.connect(lambda checked=False, name=route: self.navigate(name))
+                self._buttons[route] = button
+                layout.addWidget(button)
         layout.addStretch()
         theme = QPushButton("切换深浅主题")
+        theme.setObjectName("theme_toggle_button")
         theme.clicked.connect(self._toggle_theme)
         layout.addWidget(theme)
         return navigation
@@ -300,6 +350,7 @@ class MainWindow(QMainWindow):
         bar.setObjectName("status_bar")
         self.status_bar_layout = QHBoxLayout(bar)
         layout = self.status_bar_layout
+        layout.setContentsMargins(16, 8, 16, 8)
         self.link_status = QLabel("RX 0 B  |  TX 0 B  |  Snapshot 0 Hz")
         self.link_status.setObjectName("link_status")
         self.notification_center = QLabel("Observer 模式 | 动作能力锁定")
@@ -314,8 +365,7 @@ class MainWindow(QMainWindow):
         return bar
 
     def _toggle_theme(self) -> None:
-        current = self.styleSheet()
-        self.setStyleSheet(LIGHT_THEME if current == DARK_THEME else DARK_THEME)
+        self.apply_theme("light" if self._theme_name == "dark" else "dark")
 
     def _mode_changed(self, text: str) -> None:
         self.trajectory_view_model.abort_playback("mode_changed")

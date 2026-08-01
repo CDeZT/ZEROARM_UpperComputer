@@ -25,7 +25,7 @@ class ConnectionPage(QWidget):
     connection_text_changed = Signal(str)
     _session_event_received = Signal(object)
 
-    def __init__(self) -> None:
+    def __init__(self, *, prefer_mock: bool = True) -> None:
         super().__init__()
         self.setObjectName("page_connection")
         self.session: DeviceSession | None = None
@@ -33,7 +33,12 @@ class ConnectionPage(QWidget):
 
         title = QLabel("连接与设备")
         title.setObjectName("page_title")
-        subtitle = QLabel("通过相同的 V1 Session 链路连接确定性 Mock 或 Serial 设备")
+        subtitle = QLabel(
+            "通过相同的 V1 Session 链路连接确定性 Mock 或 Serial 设备。"
+            "Serial 默认只读；动作命令仅 Mock 会话开放。"
+        )
+        subtitle.setObjectName("page_subtitle")
+        subtitle.setWordWrap(True)
         self.transport_selector = QComboBox()
         self.transport_selector.setObjectName("transport_selector")
         self.transport_selector.addItems(["Mock", "Serial"])
@@ -79,8 +84,13 @@ class ConnectionPage(QWidget):
         layout.addWidget(QLabel("握手时间线"))
         layout.addWidget(self.timeline)
         layout.addWidget(self.identity)
+        safety = QLabel("安全提示：软件停止 ≠ 物理急停；J2/J6 Unavailable；真实动作需单独授权。")
+        safety.setObjectName("connection_safety_note")
+        safety.setWordWrap(True)
+        layout.addWidget(safety)
         layout.addStretch()
-        self._transport_changed("Mock")
+        self.transport_selector.setCurrentText("Mock" if prefer_mock else "Serial")
+        self._transport_changed(self.transport_selector.currentText())
 
     @Slot()
     def refresh_ports(self) -> None:

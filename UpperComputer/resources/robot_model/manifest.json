@@ -2,8 +2,8 @@
   "files": [
     {
       "path": "licenses/GPL-2.0.txt",
-      "sha256": "189b1af95d661151e054cea10c91b3d754e4de4d3fecfb074c1fb29476f7167b",
-      "size": 18431
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "size": 18092
     },
     {
       "path": "URDF_XG_Robot_Arm_Urdf_V1_1/meshes/base_link.STL",
@@ -42,8 +42,8 @@
     },
     {
       "path": "URDF_XG_Robot_Arm_Urdf_V1_1/urdf/URDF_XG_Robot_Arm_Urdf_V1_1.urdf",
-      "sha256": "a9abf4e0d714c6a24e1a36e6cfe067727b1ab1b6aa43c78a08c440a04048f6bd",
-      "size": 9431
+      "sha256": "3dc5875cfdc1d55378d2cd64f2a9c7f029801d6083fdf1545c53a8afc87c11ad",
+      "size": 9052
     }
   ],
   "license": "GPL-2.0",
