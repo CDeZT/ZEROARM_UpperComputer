@@ -89,6 +89,16 @@ class MockDevice:
         self.fault_flags |= V1FaultFlag.ESTOP
         self.run_state = 5
 
+    def simulate_startup_limits_missing(self) -> None:
+        """Simulate the required startup limit gate not active (FAULT_STARTUP)."""
+        self._homing_sequence.clear()
+        self.moving_mask = 0
+        self.enabled_mask = 0
+        self.target_joint_urad = self.actual_joint_urad
+        self._motion_authorized = False
+        self.fault_flags |= V1FaultFlag.STARTUP
+        self.run_state = 5
+
     def simulate_reset(self) -> None:
         """Simulate an MCU power/reset cycle (the only way out of an E-stop latch)."""
         self.estop_latched = False

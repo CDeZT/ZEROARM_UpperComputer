@@ -15,6 +15,16 @@ class DashboardPage(QWidget):
         self.run_state = QLabel("未连接")
         self.run_state.setObjectName("dashboard_run_state")
         self.fault = QLabel("FAULT --")
+        self.profile = QLabel("PROFILE --")
+        self.profile.setObjectName("dashboard_profile")
+        self.readiness = QLabel("READINESS --")
+        self.readiness.setObjectName("dashboard_readiness")
+        self.fault_names = QLabel("FAULT 位 --")
+        self.fault_names.setObjectName("dashboard_fault_names")
+        self.freshness = QLabel("新鲜度 --")
+        self.freshness.setObjectName("dashboard_freshness")
+        self.auto_home = QLabel("")
+        self.auto_home.setObjectName("dashboard_auto_home")
         self.joint_labels = [QLabel(f"J{index}: --") for index in range(1, 7)]
         grid = QGridLayout()
         for index, label in enumerate(self.joint_labels):
@@ -24,7 +34,12 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(36, 32, 36, 32)
         layout.addWidget(title)
         layout.addWidget(self.run_state)
+        layout.addWidget(self.profile)
+        layout.addWidget(self.readiness)
         layout.addWidget(self.fault)
+        layout.addWidget(self.fault_names)
+        layout.addWidget(self.freshness)
+        layout.addWidget(self.auto_home)
         layout.addLayout(grid)
         layout.addWidget(QLabel("3D 工作区将在单元12加载 | 当前仅展示协议真实状态。"))
         layout.addStretch()
@@ -35,7 +50,33 @@ class DashboardPage(QWidget):
         self.run_state.setText(f"运行状态: {state.run_state_text}")
         fault = "--" if state.fault_flags_raw is None else f"0x{state.fault_flags_raw:08X}"
         self.fault.setText(f"FAULT {fault}")
+        readiness = state.readiness
+        if readiness is None:
+            self.profile.setText("PROFILE --")
+            self.readiness.setText("READINESS 未连接")
+            self.fault_names.setText("FAULT 位 --")
+            self.freshness.setText("新鲜度 --")
+            self.auto_home.setText("")
+        else:
+            self.profile.setText(
+                "PROFILE zeroarm_g474_v1_partial | 可用 J1/J3/J4/J5 | J2/J6 Unavailable"
+            )
+            authorized = "运动已授权" if readiness.motion_authorized else "运动未授权"
+            homed = "已回零" if readiness.homed_complete else "未回零"
+            reset = " | RESET-REQUIRED" if readiness.reset_required else ""
+            self.readiness.setText(f"READINESS {authorized} | {homed}{reset}")
+            known = ", ".join(state.fault_names) if state.fault_names else "无"
+            unknown = (
+                f" | 未知位 0x{state.fault_unknown_bits:X}" if state.fault_unknown_bits else ""
+            )
+            self.fault_names.setText(f"FAULT 位 {known}{unknown}")
+            age = "--" if state.snapshot_age_ms is None else f"{state.snapshot_age_ms} ms"
+            self.freshness.setText(f"新鲜度 {age}")
+            self.auto_home.setText(state.auto_home_warning or "")
         for label, joint in zip(self.joint_labels, state.joints, strict=False):
+            if joint.index - 1 in state.unavailable_axes:
+                label.setText(f"J{joint.index}  Unavailable")
+                continue
             label.setText(
                 f"J{joint.index}  目标 {joint.target_urad / 1_000_000:.3f} rad  "
                 f"实际 {joint.actual_urad / 1_000_000:.3f} rad  误差 {joint.error_urad} urad"

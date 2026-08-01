@@ -42,6 +42,11 @@ class JointMonitorPage(QWidget):
     @Slot(object)
     def apply_state(self, state: SnapshotViewState) -> None:
         for row, joint in zip(self.rows, state.joints, strict=False):
+            if joint.index - 1 in state.unavailable_axes:
+                row[0].setText(f"J{joint.index} (Unavailable)")
+                for label in row[1:]:
+                    label.setText("--")
+                continue
             texts = (
                 str(joint.target_urad),
                 str(joint.actual_urad),
