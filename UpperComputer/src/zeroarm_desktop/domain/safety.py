@@ -26,6 +26,9 @@ class CommandFamily(Enum):
     STOP = "stop"
     JOINT_TARGET = "joint_target"
     ENABLE = "enable"
+    HOME = "home"
+    FAULT_CLEAR = "fault_clear"
+    GRIPPER = "gripper"
     GRAVITY_RELEASE = "gravity_release"
     TRAJECTORY = "trajectory"
 
@@ -113,8 +116,10 @@ class SafetyGate:
             context.now_monotonic_ns - snapshot.received_monotonic_ns > context.snapshot_max_age_ns
         ):
             denials.append("snapshot_stale")
-        elif snapshot.run_state_raw in {0, 3, 5}:
+        elif intent.family is not CommandFamily.FAULT_CLEAR and snapshot.run_state_raw in {0, 3, 5}:
             denials.append("run_state_unsafe")
+        if intent.family is CommandFamily.FAULT_CLEAR:
+            return SafetyDecision(not denials, tuple(denials), tuple(warnings), intent, None)
         if context.calibration_hash is None:
             denials.append("calibration_missing")
         if not context.mock_transport and not context.hardware_assembled:
@@ -125,6 +130,11 @@ class SafetyGate:
             denials.append("hold_required")
         if intent.family is CommandFamily.GRAVITY_RELEASE and not context.support_confirmed:
             denials.append("gravity_support_required")
+        if intent.family is CommandFamily.HOME:
+            if snapshot is not None and snapshot.run_state_raw != 1:
+                denials.append("home_requires_ready")
+            if intent.joint_mask & ~self.profile.home_mask:
+                denials.append("home_mask_outside_profile")
 
         target = intent.target
         if intent.family is CommandFamily.JOINT_TARGET:

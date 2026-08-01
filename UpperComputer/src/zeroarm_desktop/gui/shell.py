@@ -25,12 +25,14 @@ from zeroarm_desktop.gui.pages.dataset import DatasetPage
 from zeroarm_desktop.gui.pages.diagnostics import DiagnosticsPage, ProtocolConsolePage
 from zeroarm_desktop.gui.pages.firmware import FirmwarePage
 from zeroarm_desktop.gui.pages.gamepad_recipe import GamepadRecipePage
+from zeroarm_desktop.gui.pages.home import HomePage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
 from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
 from zeroarm_desktop.gui.pages.teach import TeachPage
 from zeroarm_desktop.gui.pages.trajectory import TrajectoryPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
+from zeroarm_desktop.gui.viewmodels.home import HomeViewModel
 from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
@@ -124,6 +126,15 @@ class MainWindow(QMainWindow):
             ),
         )
         self.register_page("calibration", CalibrationPage())
+        self.home_view_model = HomeViewModel(self.connection_page)
+        self.register_page("home", HomePage(self.home_view_model))
+        self.connection_page.session_changed.connect(
+            lambda session: self.home_view_model.set_mode(
+                AppMode.OPERATOR
+                if self.mode_selector.currentText() == "Operator"
+                else AppMode.OBSERVER
+            )
+        )
         self.register_page("diagnostics", DiagnosticsPage(self.connection_page))
         self.register_page("protocol_console", ProtocolConsolePage(self.connection_page))
         self.register_page("gamepad_recipe", GamepadRecipePage())
@@ -208,7 +219,8 @@ class MainWindow(QMainWindow):
             ("trajectory", "轨迹编辑器"),
             ("teach", "拖动示教 (Mock)"),
             ("cartesian", "Cartesian离线IK"),
-            ("calibration", "标定/Homing"),
+            ("calibration", "标定"),
+            ("home", "回零向导 (Mock)"),
             ("diagnostics", "诊断"),
             ("protocol_console", "安全协议终端"),
             ("gamepad_recipe", "手柄/Recipe"),
@@ -248,6 +260,7 @@ class MainWindow(QMainWindow):
         self.trajectory_view_model.abort_playback("mode_changed")
         mode = AppMode.OPERATOR if text == "Operator" else AppMode.OBSERVER
         self.manual_view_model.set_mode(mode)
+        self.home_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
 
     def _apply_snapshot_state(self, state: SnapshotViewState) -> None:

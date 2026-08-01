@@ -181,6 +181,36 @@ class DeviceSession:
             self._codec.encode_empty_command(V1Command.TEACH_STOP),
         )
 
+    def send_enable(self, joint_mask: int) -> WireResult:
+        return self._send_action_result(
+            V1Command.ENABLE,
+            self._codec.encode_joint_mask(V1Command.ENABLE, joint_mask),
+        )
+
+    def send_disable(self, joint_mask: int) -> WireResult:
+        return self._send_action_result(
+            V1Command.DISABLE,
+            self._codec.encode_joint_mask(V1Command.DISABLE, joint_mask),
+        )
+
+    def send_stop(self) -> WireResult:
+        return self._send_action_result(
+            V1Command.STOP,
+            self._codec.encode_empty_command(V1Command.STOP),
+        )
+
+    def send_home(self, joint_mask: int) -> WireResult:
+        return self._send_action_result(
+            V1Command.HOME,
+            self._codec.encode_joint_mask(V1Command.HOME, joint_mask),
+        )
+
+    def send_clear_fault(self) -> WireResult:
+        return self._send_action_result(
+            V1Command.CLEAR_FAULT,
+            self._codec.encode_empty_command(V1Command.CLEAR_FAULT),
+        )
+
     def _send_action_result(self, command: V1Command, data: bytes) -> WireResult:
         if not self._actions_allowed:
             raise PermissionError("action commands are disabled for this Session")
@@ -258,6 +288,11 @@ class DeviceSession:
                 V1Command.SET_JOINT_TARGET,
                 V1Command.TEACH_START,
                 V1Command.TEACH_STOP,
+                V1Command.ENABLE,
+                V1Command.DISABLE,
+                V1Command.STOP,
+                V1Command.HOME,
+                V1Command.CLEAR_FAULT,
             }:
                 self._last_result = self._codec.decode_result(frame)
         except ProtocolDecodeError as error:
