@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "port": "COM3",
+  "started_utc": "2026-08-01T06:52:58.100453+00:00",
+  "duration_s": 30,
+  "poll_hz": 20,
+  "identity": "ZEROARM/1.0",
+  "final_state": "disconnected",
+  "failure": null,
+  "snapshots_published": 230,
+  "generation": 230,
+  "requests_sent": 231,
+  "responses_received": 231,
+  "unexpected_frames": 0,
+  "parser": {
+    "noise_bytes": 0,
+    "length_errors": 0,
+    "crc_errors": 0,
+    "etx_errors": 0
+  },
+  "run_state": 1,
+  "fault_flags": 0,
+  "enabled_mask": 0,
+  "homed_mask": 29,
+  "moving_mask": 0,
+  "fixture_semantics_match": "V1-STATE-READY-HOMED-1D",
+  "command_audit": {
+    "HELLO": 1,
+    "GET_STATE": 230
+  }
+}

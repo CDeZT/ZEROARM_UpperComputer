@@ -10,7 +10,7 @@ from time import monotonic_ns
 from zeroarm_desktop.domain.errors import ProtocolDecodeError, TransportError
 from zeroarm_desktop.domain.models import FirmwareIdentity, RobotSnapshot
 from zeroarm_desktop.protocol.frame_codec import ProtocolFrame
-from zeroarm_desktop.protocol.stream_parser import StreamParser
+from zeroarm_desktop.protocol.stream_parser import ParserStatistics, StreamParser
 from zeroarm_desktop.protocol.v1_codec import V1Command, V1CommandCodec, WireResult
 from zeroarm_desktop.transport.base import CallbackRegistry, LinkStateEvent, Subscription, Transport
 
@@ -92,6 +92,11 @@ class DeviceSession:
     def statistics(self) -> SessionStatistics:
         with self._lock:
             return self._statistics
+
+    @property
+    def parser_statistics(self) -> ParserStatistics:
+        with self._lock:
+            return self._parser.statistics
 
     @property
     def actions_allowed(self) -> bool:
