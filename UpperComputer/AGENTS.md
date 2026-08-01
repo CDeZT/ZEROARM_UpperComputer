@@ -356,7 +356,10 @@ Mock不能绕过真实Domain/SafetyGate；只替换Transport另一端。
 **交接入口（2026-08-01 晚）**：`docs/AGENT_HANDOFF_2026-08-01-LATE.md` + `docs/IMPLEMENTATION_STATUS.md`。
 
 - 旧主线单元 0～24/27/28/29/32 与 V1 迁移 **R1～R14 已提交完成**（Mock GUI 主路径可演示）。
-- **R15 打包/发布刷新：半成品在工作区、未提交**；先验证脏改动再原子提交，再补 Windows 真构建与验收勾选。
+- **R15 打包/发布刷新：代码与文档已提交（2026-08-02，git tip d92926b）**；
+  macOS dry-run 冒烟通过，剩 **Windows 真构建与验收勾选**（PyInstaller 产物、
+  无 Python 环境烟雾、Inno 安装/升级/卸载实测）。
+- 全页 UI 审查修复已完成并提交（`docs/UI_REVIEW_2026-08-01.md`）。
 - 协议 V2 仍等待用户明确回复「确认实施协议 V2」；批准前不得改 MCU 协议实现。
 - 真实 Serial 动作验收仍受机械安全门限制；Serial 默认只读。
 - 最新进度与路径以 LATE 交接文和 `git status`/`git log` 为准，勿依赖过期总结。
