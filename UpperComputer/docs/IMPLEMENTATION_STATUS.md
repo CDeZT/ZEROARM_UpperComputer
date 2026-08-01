@@ -8,10 +8,23 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R11～R13（真实示教 / 夹爪只读 / 台架只读诊断）
-当前/下一单元：R14 数据与性能（schema、OperationEvidence、soak、队列时延）
-当前代码修改：R1～R13 已完成
+最近完成：R14 + GUI 成品化（会话录制、Evidence、轨迹导入导出、Recipe/数据集/标定接线）
+当前/下一单元：R15 打包/发布刷新（便携包烟雾、能力矩阵）
+当前代码修改：R1～R14 已完成
 ```
+
+## R14 + GUI 成品化完成记录
+
+- `domain/evidence.py`：`OperationEvidence` + 有界 `EvidenceLog` JSON 导出。
+- `application/session_recording.py`：连接生命周期绑定 SQLite `Recorder`，快照/事件入队。
+- `application/performance.py`：链路 Hz / poll_coalesced / recorder drop 采样。
+- 轨迹：`load/import/export` JSON；示教「另存」自动加载到轨迹编辑器。
+- Recipe：准备后展开为轨迹并走 Mock 回放（SafetyGate）。
+- 数据集：从示教 raw 生成 Episode 再导出。
+- 标定页：对齐 HOME 0x1D / profile，去掉假 NOT_CONFIGURED 按钮。
+- 诊断页：Recorder 统计 + Evidence 导出；Dashboard 会话指标。
+- 测试：product flow / evidence / session recording；ruff/mypy/pytest 本轮验证。
+- 硬件：未连接、未发动作命令。
 
 ## R11～R13 完成记录（示教 + 夹爪/台架只读）
 
@@ -218,7 +231,8 @@ MCU 的 J1/J3/J4/J5 已有现场动作与自动回零测试，不再描述为“
 11. R11：真实示教。**已完成（2026-08-01，Mock E2E）**。
 12. R12：夹爪只读诊断。**已完成（2026-08-01，Mock）**。
 13. R13：台架/协议终端只读。**已完成（2026-08-01，Mock）**。
-14. R14 以后：数据/性能、打包发布刷新（真实动作类仍需单独授权）。
+14. R14：数据/性能 + GUI 成品化接线。**已完成（2026-08-01，Mock）**。
+15. R15：打包/发布刷新（真实动作类仍需单独授权）。
 
 ## 保持独立的未来路线
 

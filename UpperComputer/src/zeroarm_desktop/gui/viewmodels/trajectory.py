@@ -27,6 +27,8 @@ from zeroarm_desktop.domain.trajectory import (
     TrajectoryPoint,
     resample_linear,
     smooth_moving_average,
+    trajectory_from_json,
+    trajectory_to_json,
     validate_trajectory,
 )
 
@@ -87,6 +89,24 @@ class TrajectoryViewModel(QObject):
 
     def select(self, index: int) -> None:
         self.ghost_changed.emit(self.trajectory.points[index].joint_urad)
+
+    def load_trajectory(self, trajectory: Trajectory) -> None:
+        self.abort_playback("load_trajectory")
+        self.editor.apply(trajectory)
+        self.changed.emit(self.trajectory)
+
+    def import_json_text(self, text: str) -> Trajectory:
+        trajectory = trajectory_from_json(text)
+        report = validate_trajectory(trajectory)
+        if not report.valid:
+            raise ValueError(
+                "导入轨迹验证失败: " + ",".join(issue.code for issue in report.issues[:4])
+            )
+        self.load_trajectory(trajectory)
+        return trajectory
+
+    def export_json_text(self) -> str:
+        return trajectory_to_json(self.trajectory)
 
     def resample(self) -> None:
         self.editor.apply(resample_linear(self.trajectory, 100_000_000))

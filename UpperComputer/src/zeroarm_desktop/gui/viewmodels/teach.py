@@ -47,6 +47,7 @@ class TeachViewModel(QObject):
     state_changed = Signal(str)
     stats_changed = Signal(str)
     review_changed = Signal(str)
+    trajectory_saved = Signal(object)
 
     def __init__(self, session_provider: object) -> None:
         super().__init__()
@@ -182,6 +183,7 @@ class TeachViewModel(QObject):
             raise RuntimeError("没有可保存的示教记录")
         trajectory = recording_to_trajectory(recording, name)
         self._saved_trajectory = trajectory
+        self.trajectory_saved.emit(trajectory)
         self.status_changed.emit(
             f"已另存轨迹 {trajectory.name} | points={len(trajectory.points)} | "
             f"parent={recording.sha256[:12]}"

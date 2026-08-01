@@ -4,35 +4,67 @@ from PySide6.QtWidgets import QComboBox, QLabel, QPushButton, QVBoxLayout, QWidg
 
 from zeroarm_desktop.application.device_session import DeviceSession
 from zeroarm_desktop.application.diagnostics import collect_diagnostics, create_diagnostic_bundle
+from zeroarm_desktop.application.session_recording import SessionRecordingBridge
+from zeroarm_desktop.domain.evidence import EvidenceLog
 from zeroarm_desktop.infrastructure.paths import default_data_root
 
 
 class DiagnosticsPage(QWidget):
-    def __init__(self, provider: object) -> None:
+    def __init__(
+        self,
+        provider: object,
+        *,
+        recording: SessionRecordingBridge | None = None,
+        evidence_log: EvidenceLog | None = None,
+        performance_text: str = "",
+    ) -> None:
         super().__init__()
         self.setObjectName("page_diagnostics")
         self.provider = provider
-        title = QLabel("诊断")
+        self.recording = recording
+        self.evidence_log = evidence_log
+        self._performance_text = performance_text
+        title = QLabel("诊断与会话数据")
         title.setObjectName("page_title")
         self.text = QLabel("等待刷新")
         self.text.setObjectName("diagnostics_text")
+        self.text.setWordWrap(True)
         refresh = QPushButton("刷新诊断")
         refresh.setObjectName("refresh_diagnostics")
         refresh.clicked.connect(self.refresh)
         bundle = QPushButton("导出脱敏诊断包")
         bundle.setObjectName("export_diagnostic_bundle")
         bundle.clicked.connect(self.export)
+        evidence = QPushButton("导出 OperationEvidence JSON")
+        evidence.setObjectName("export_evidence_button")
+        evidence.clicked.connect(self.export_evidence)
         layout = QVBoxLayout(self)
-        for widget in (title, refresh, bundle, self.text):
+        layout.setContentsMargins(36, 32, 36, 32)
+        for widget in (title, refresh, bundle, evidence, self.text):
             layout.addWidget(widget)
         layout.addStretch()
 
+    def set_performance_text(self, text: str) -> None:
+        self._performance_text = text
+
     def refresh(self) -> None:
         snapshot = collect_diagnostics(getattr(self.provider, "session", None))
+        recorder_line = "Recorder 未绑定"
+        if self.recording is not None:
+            stats = self.recording.recorder.statistics
+            recorder_line = (
+                f"Recorder session={self.recording.session_id or '--'} "
+                f"written={stats.events_written} dropped={stats.events_dropped} "
+                f"batches={stats.batches_written} err={stats.last_error or 'none'}"
+            )
+        evidence_count = 0 if self.evidence_log is None else len(self.evidence_log.items)
         self.text.setText(
             f"Session={snapshot.session_state} Firmware={snapshot.firmware or '--'}\n"
-            f"SessionStats={snapshot.session_statistics}\nParserStats={snapshot.parser_statistics}\n"
-            + "\n".join(snapshot.capability_gaps)
+            f"SessionStats={snapshot.session_statistics}\n"
+            f"ParserStats={snapshot.parser_statistics}\n"
+            f"{recorder_line}\n"
+            f"Evidence count={evidence_count}\n"
+            f"Performance: {self._performance_text or '--'}\n" + "\n".join(snapshot.capability_gaps)
         )
 
     def export(self) -> None:
@@ -42,6 +74,15 @@ class DiagnosticsPage(QWidget):
             path,
         )
         self.text.setText(f"诊断包已导出: {path.name}")
+
+    def export_evidence(self) -> None:
+        if self.evidence_log is None:
+            self.text.setText("EvidenceLog 未注入")
+            return
+        path = default_data_root() / "diagnostics" / "operation_evidence.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.evidence_log.to_json(), encoding="utf-8")
+        self.text.setText(f"Evidence 已导出: {path.name} | items={len(self.evidence_log.items)}")
 
 
 class ProtocolConsolePage(QWidget):

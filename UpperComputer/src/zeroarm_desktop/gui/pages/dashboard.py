@@ -41,9 +41,15 @@ class DashboardPage(QWidget):
         layout.addWidget(self.freshness)
         layout.addWidget(self.auto_home)
         layout.addLayout(grid)
-        layout.addWidget(QLabel("3D 工作区将在单元12加载 | 当前仅展示协议真实状态。"))
+        self.session_metrics = QLabel("会话指标 --")
+        self.session_metrics.setObjectName("dashboard_session_metrics")
+        layout.addWidget(self.session_metrics)
+        layout.addWidget(QLabel("3D / 监控 / 手动 / 轨迹 / 示教 已接入 | 状态来自 V1 快照。"))
         layout.addStretch()
         view_model.state_changed.connect(self.apply_state)
+
+    def set_session_metrics(self, text: str) -> None:
+        self.session_metrics.setText(text)
 
     @Slot(object)
     def apply_state(self, state: SnapshotViewState) -> None:

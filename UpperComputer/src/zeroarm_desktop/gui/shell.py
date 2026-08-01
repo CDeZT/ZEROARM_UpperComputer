@@ -2,9 +2,10 @@
 
 from collections.abc import Callable
 from contextlib import suppress
+from pathlib import Path
 from time import monotonic, sleep
 
-from PySide6.QtCore import QCoreApplication, QEvent, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,6 +21,9 @@ from PySide6.QtWidgets import (
 )
 
 from zeroarm_desktop.application.device_session import DeviceSession, SessionState
+from zeroarm_desktop.application.performance import PerformanceSampler
+from zeroarm_desktop.application.session_recording import SessionRecordingBridge
+from zeroarm_desktop.domain.evidence import EvidenceLog, OutcomeStatus, make_evidence
 from zeroarm_desktop.domain.safety import AppMode
 from zeroarm_desktop.gui.pages.calibration import CalibrationPage
 from zeroarm_desktop.gui.pages.cartesian import CartesianPage
@@ -79,6 +83,7 @@ class MainWindow(QMainWindow):
         *,
         shutdown: Callable[[], None] | None = None,
         confirm_fault_exit: Callable[[str, str], bool] | None = None,
+        session_database_path: Path | None = None,
     ) -> None:
         super().__init__()
         self._shutdown = shutdown
@@ -89,6 +94,9 @@ class MainWindow(QMainWindow):
         )
         self._pages: dict[str, int] = {}
         self._buttons: dict[str, QPushButton] = {}
+        self.evidence_log = EvidenceLog()
+        self.recording = SessionRecordingBridge(session_database_path)
+        self.performance_sampler = PerformanceSampler()
         self.setObjectName("main_window")
         self.setWindowTitle(f"ZeroArm Desktop {__version__}")
         self.setMinimumSize(1280, 720)
@@ -115,6 +123,7 @@ class MainWindow(QMainWindow):
         self.snapshot_view_model = SnapshotViewModel()
         self.snapshot_view_model.state_changed.connect(self._apply_snapshot_state)
         self.connection_page.session_changed.connect(self.snapshot_view_model.bind_session)
+        self.connection_page.session_changed.connect(self._on_session_changed)
         asset_root = robot_model_root()
         urdf = asset_root / "URDF_XG_Robot_Arm_Urdf_V1_1/urdf" / "URDF_XG_Robot_Arm_Urdf_V1_1.urdf"
         kinematics = UrdfForwardKinematics(urdf)
@@ -129,13 +138,15 @@ class MainWindow(QMainWindow):
         )
         self.trajectory_view_model = TrajectoryViewModel(self.connection_page)
         self.trajectory_view_model.ghost_changed.connect(self.workspace_view_model.set_ghost_target)
+        self.dashboard_page = DashboardPage(self.snapshot_view_model)
         self.register_page("connection", self.connection_page)
-        self.register_page("dashboard", DashboardPage(self.snapshot_view_model))
+        self.register_page("dashboard", self.dashboard_page)
         self.register_page("joint_monitor", JointMonitorPage(self.snapshot_view_model))
         self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
         self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
         self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
         self.teach_view_model = TeachViewModel(self.connection_page)
+        self.teach_view_model.trajectory_saved.connect(self._on_teach_trajectory_saved)
         self.teach_page = TeachPage(self.teach_view_model)
         self.register_page("teach", self.teach_page)
         self.register_page(
@@ -146,8 +157,8 @@ class MainWindow(QMainWindow):
                 self.workspace_view_model.set_ghost_target,
             ),
         )
-        self.register_page("calibration", CalibrationPage())
         self.home_view_model = HomeViewModel(self.connection_page)
+        self.register_page("calibration", CalibrationPage(self.home_view_model))
         self.register_page("home", HomePage(self.home_view_model))
         self.connection_page.session_changed.connect(
             lambda session: self.home_view_model.set_mode(
@@ -169,12 +180,21 @@ class MainWindow(QMainWindow):
         self.manual_view_model.status_changed.connect(self.idle_monitor.note_activity)
         self.teach_view_model.status_changed.connect(self.idle_monitor.note_activity)
         self.page_changed.connect(lambda route: self.idle_monitor.note_activity())
-        self.register_page("diagnostics", DiagnosticsPage(self.connection_page))
+        self.diagnostics_page = DiagnosticsPage(
+            self.connection_page,
+            recording=self.recording,
+            evidence_log=self.evidence_log,
+        )
+        self.register_page("diagnostics", self.diagnostics_page)
         self.register_page("protocol_console", ProtocolConsolePage(self.connection_page))
         self.register_page("gripper", GripperPage(self.connection_page))
-        self.register_page("gamepad_recipe", GamepadRecipePage())
-        self.register_page("dataset", DatasetPage())
+        self.register_page("gamepad_recipe", GamepadRecipePage(self.trajectory_view_model))
+        self.register_page("dataset", DatasetPage(self.teach_view_model))
         self.register_page("firmware", FirmwarePage())
+        self._metrics_timer = QTimer(self)
+        self._metrics_timer.setInterval(1000)
+        self._metrics_timer.timeout.connect(self._refresh_performance)
+        self._metrics_timer.start()
         self.navigate("connection")
         self.apply_theme("dark")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
@@ -320,13 +340,55 @@ class MainWindow(QMainWindow):
         session = self.connection_page.session
         if session is not None:
             statistics = session.statistics
+            identity = session.identity
+            if identity is not None:
+                self.firmware_badge.setText(identity.hello_text)
             self.link_status.setText(
                 f"Requests {statistics.requests_sent} | "
                 f"Responses {statistics.responses_received} | "
                 f"Snapshots {statistics.snapshots_published}"
             )
 
+    def _on_session_changed(self, session: object) -> None:
+        device = session if isinstance(session, DeviceSession) else None
+        self.recording.bind_session(device)
+        if device is None:
+            self.firmware_badge.setText("固件未知")
+
+    def _on_teach_trajectory_saved(self, trajectory: object) -> None:
+        from zeroarm_desktop.domain.trajectory import Trajectory
+
+        if isinstance(trajectory, Trajectory):
+            self.trajectory_view_model.load_trajectory(trajectory)
+            self.evidence_log.append(
+                make_evidence(
+                    command_name="TEACH_SAVE_TRAJECTORY",
+                    outcome=OutcomeStatus.COMPLETED,
+                    notes=(f"points={len(trajectory.points)}", trajectory.name),
+                )
+            )
+            self.recording.note(
+                "teach_trajectory_saved",
+                {"name": trajectory.name, "points": len(trajectory.points)},
+            )
+            self.notification_center.setText(f"示教轨迹已加载到编辑器: {trajectory.name}")
+
+    def _refresh_performance(self) -> None:
+        sample = self.performance_sampler.sample(
+            self.connection_page.session,
+            self.recording.recorder.statistics,
+        )
+        text = (
+            f"Hz≈{sample.snapshot_hz:.1f} | poll_coalesced={sample.poll_coalesced} | "
+            f"rec_w={sample.recorder_written} drop={sample.recorder_dropped}"
+        )
+        if sample.notes:
+            text += " | " + ",".join(sample.notes)
+        self.dashboard_page.set_session_metrics(text)
+        self.diagnostics_page.set_performance_text(text)
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._metrics_timer.stop()
         self.idle_monitor.stop()
         self.snapshot_view_model.close()
         self.workspace_view_model.close()
@@ -343,6 +405,7 @@ class MainWindow(QMainWindow):
         ):
             return
         self.connection_page.close_session()
+        self.recording.unbind()
         if self._shutdown is not None:
             self._shutdown()
         event.accept()

@@ -1,7 +1,10 @@
-"""Versioned trajectory table, timeline, processing, and ghost page."""
+"""Versioned trajectory table, import/export, processing, and playback page."""
+
+from pathlib import Path
 
 import pyqtgraph as pg  # type: ignore[import-untyped]
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -13,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from zeroarm_desktop.domain.trajectory import Trajectory, validate_trajectory
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
+from zeroarm_desktop.infrastructure.paths import default_data_root
 
 
 class TrajectoryPage(QWidget):
@@ -39,6 +43,8 @@ class TrajectoryPage(QWidget):
         buttons = QHBoxLayout()
         for name, text, operation in (
             ("trajectory_validate_button", "验证", self._validate),
+            ("trajectory_import_button", "导入 JSON", self._import_json),
+            ("trajectory_export_button", "导出 JSON", self._export_json),
             ("trajectory_resample_button", "重采样 10Hz", view_model.resample),
             ("trajectory_smooth_button", "平滑", view_model.smooth),
             ("trajectory_undo_button", "撤销", view_model.undo),
@@ -104,3 +110,33 @@ class TrajectoryPage(QWidget):
             self.view_model.start_playback()
         except (PermissionError, RuntimeError, ValueError) as error:
             self.status.setText(str(error))
+
+    def _import_json(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "导入轨迹 JSON", str(default_data_root() / "trajectories"), "JSON (*.json)"
+        )
+        if not path:
+            return
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+            trajectory = self.view_model.import_json_text(text)
+            self.status.setText(f"已导入 {trajectory.name} | points={len(trajectory.points)}")
+        except (OSError, ValueError, TypeError, KeyError) as error:
+            self.status.setText(f"导入失败: {error}")
+
+    def _export_json(self) -> None:
+        directory = default_data_root() / "trajectories"
+        directory.mkdir(parents=True, exist_ok=True)
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出轨迹 JSON",
+            str(directory / f"{self.view_model.trajectory.name}.json"),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            Path(path).write_text(self.view_model.export_json_text(), encoding="utf-8")
+            self.status.setText(f"已导出: {Path(path).name}")
+        except OSError as error:
+            self.status.setText(f"导出失败: {error}")
