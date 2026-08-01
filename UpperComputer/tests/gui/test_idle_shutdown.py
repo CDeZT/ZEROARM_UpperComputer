@@ -66,6 +66,22 @@ def test_user_activity_resets_idle_timer(qtbot: QtBot) -> None:
     assert remaining_after >= remaining_before
 
 
+def test_continuous_hold_prevents_operator_idle_home(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _connected_operator(window)
+    session = window.connection_page.session
+    assert session is not None
+    window.idle_monitor._timeout_ms = 300
+    window.idle_monitor.note_activity()
+
+    window.manual_view_model.start_hold(0, 1, 1_000)
+    qtbot.wait(1_100)
+
+    assert "HOME" not in session.command_audit
+    window.manual_view_model.stop_hold("test_release")
+
+
 def test_idle_monitor_never_sends_on_serial_readonly(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)

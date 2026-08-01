@@ -105,6 +105,13 @@ class SafetyGate:
 
         denials: list[str] = []
         warnings: list[str] = ["软件检查不能替代机械急停和装机确认"]
+        if intent.family is CommandFamily.STOP:
+            if context.session_state is not SessionState.READONLY_READY:
+                denials.append("session_not_ready")
+            if intent.joint_mask != 0:
+                denials.append("stop_mask_must_be_empty")
+            return SafetyDecision(not denials, tuple(denials), tuple(warnings), intent, None)
+
         snapshot = context.snapshot
         if context.session_state is not SessionState.READONLY_READY:
             denials.append("session_not_ready")
@@ -155,6 +162,8 @@ class SafetyGate:
         if intent.family is CommandFamily.HOME:
             if snapshot is not None and snapshot.run_state_raw != 1:
                 denials.append("home_requires_ready")
+            if snapshot is not None and (snapshot.moving_mask or 0) != 0:
+                denials.append("axes_still_moving")
             if intent.joint_mask & ~self.profile.home_mask:
                 denials.append("home_mask_outside_profile")
 

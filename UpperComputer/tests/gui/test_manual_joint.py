@@ -120,6 +120,9 @@ def test_global_stop_and_navigation_cancel_hold(qtbot: QtBot) -> None:
     positive.pressed.emit()
     window.stop_button.click()
     assert not window.manual_view_model.holding
+    session = window.connection_page.session
+    assert session is not None
+    assert "STOP" in session.command_audit
     positive.pressed.emit()
     window.navigate("dashboard")
     assert not window.manual_view_model.holding

@@ -36,6 +36,7 @@ class SessionCommandExecutor:
 class ManualJointViewModel(QObject):
     status_changed = Signal(str)
     ghost_target_changed = Signal(object)
+    operator_activity = Signal()
 
     def __init__(self, session_provider: object) -> None:
         super().__init__()
@@ -122,6 +123,7 @@ class ManualJointViewModel(QObject):
         self._hold_axis = axis
         self._hold_direction = direction
         self._hold_step_urad = step_urad
+        self.operator_activity.emit()
         self._hold_timer.start()
         self._hold_tick()
 
@@ -138,6 +140,7 @@ class ManualJointViewModel(QObject):
     @Slot()
     def _hold_tick(self) -> None:
         try:
+            self.operator_activity.emit()
             session = self._session()
             snapshot = session.latest_snapshot
             if snapshot is None:

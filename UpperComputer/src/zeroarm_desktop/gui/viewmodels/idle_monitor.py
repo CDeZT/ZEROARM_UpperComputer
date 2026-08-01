@@ -7,6 +7,7 @@ SafetyGate path with mask 0x1D. Read-only Serial sessions never auto-send.
 """
 
 import math
+from collections.abc import Callable
 from time import monotonic_ns
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -28,11 +29,13 @@ class OperatorIdleHomeMonitor(QObject):
         home_view_model: HomeViewModel,
         *,
         idle_timeout_ms: int = OPERATOR_IDLE_TIMEOUT_MS,
+        motion_active: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__()
         self._provider = session_provider
         self._home = home_view_model
         self._timeout_ms = idle_timeout_ms
+        self._motion_active = motion_active or (lambda: False)
         self._deadline_ns: int | None = None
         self._timer = QTimer(self)
         self._timer.setInterval(TICK_INTERVAL_MS)
@@ -63,6 +66,10 @@ class OperatorIdleHomeMonitor(QObject):
         remaining = self._remaining_s()
         if remaining > 0:
             self.countdown_changed.emit(remaining)
+            return
+        if self._motion_active():
+            self.home_triggered.emit("自动回零推迟: 点动、回放或示教仍在进行")
+            self.note_activity()
             return
         session = getattr(self._provider, "session", None)
         if not isinstance(session, DeviceSession) or not session.actions_allowed:

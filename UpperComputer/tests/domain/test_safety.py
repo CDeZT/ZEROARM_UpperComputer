@@ -70,6 +70,23 @@ def test_readonly_is_always_allowed_without_action_context() -> None:
     assert SafetyGate().evaluate(CommandIntent(CommandFamily.READONLY), context).allowed
 
 
+def test_stop_is_allowed_in_observer_mode_when_session_is_ready() -> None:
+    context = replace(
+        _context(),
+        snapshot=None,
+        mode=AppMode.OBSERVER,
+        calibration_hash=None,
+        mock_transport=False,
+    )
+    assert SafetyGate().evaluate(CommandIntent(CommandFamily.STOP), context).allowed
+
+
+def test_home_is_denied_while_any_axis_is_still_moving() -> None:
+    context = replace(_context(), snapshot=replace(_snapshot(), moving_mask=0x01))
+    decision = SafetyGate().evaluate(CommandIntent(CommandFamily.HOME, 0x1D), context)
+    assert "axes_still_moving" in decision.denials
+
+
 def test_gate_returns_all_relevant_denials() -> None:
     context = replace(
         _context(),

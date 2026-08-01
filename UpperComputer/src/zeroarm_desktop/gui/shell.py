@@ -46,6 +46,7 @@ from zeroarm_desktop.gui.viewmodels.home import HomeViewModel
 from zeroarm_desktop.gui.viewmodels.idle_monitor import OperatorIdleHomeMonitor
 from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
+from zeroarm_desktop.gui.viewmodels.software_stop import SoftwareStopViewModel
 from zeroarm_desktop.gui.viewmodels.teach import TeachViewModel
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
@@ -126,6 +127,8 @@ class MainWindow(QMainWindow):
 
         self.connection_page = ConnectionPage(prefer_mock=True)
         self.connection_page.connection_text_changed.connect(self.set_connection_text)
+        self.software_stop_view_model = SoftwareStopViewModel(self.connection_page)
+        self.software_stop_view_model.status_changed.connect(self.notification_center.setText)
         self.snapshot_view_model = SnapshotViewModel()
         self.snapshot_view_model.state_changed.connect(self._apply_snapshot_state)
         self.connection_page.session_changed.connect(self.snapshot_view_model.bind_session)
@@ -185,7 +188,11 @@ class MainWindow(QMainWindow):
                 else AppMode.OBSERVER
             )
         )
-        self.idle_monitor = OperatorIdleHomeMonitor(self.connection_page, self.home_view_model)
+        self.idle_monitor = OperatorIdleHomeMonitor(
+            self.connection_page,
+            self.home_view_model,
+            motion_active=self._motion_workflow_active,
+        )
         self.idle_monitor.countdown_changed.connect(self._apply_idle_countdown)
         self.idle_monitor.home_triggered.connect(
             lambda text: self.notification_center.setText(text)
@@ -196,6 +203,7 @@ class MainWindow(QMainWindow):
             else self.idle_monitor.stop()
         )
         self.manual_view_model.status_changed.connect(self.idle_monitor.note_activity)
+        self.manual_view_model.operator_activity.connect(self.idle_monitor.note_activity)
         self.teach_view_model.status_changed.connect(self.idle_monitor.note_activity)
         self.page_changed.connect(lambda route: self.idle_monitor.note_activity())
         self.diagnostics_page = DiagnosticsPage(
@@ -283,9 +291,11 @@ class MainWindow(QMainWindow):
         self.mode_selector.addItems(["Observer", "Operator"])
         self.mode_selector.currentTextChanged.connect(self._mode_changed)
         layout.addWidget(self.mode_selector)
-        self.stop_button = QPushButton("软件停止 · 非急停")
+        self.stop_button = QPushButton("发送软件 STOP · 非急停")
         self.stop_button.setObjectName("global_stop_button")
-        self.stop_button.setToolTip("仅停止 Mock 点动/回放等软件动作，不是物理急停")
+        self.stop_button.setToolTip(
+            "先停止点动/回放等本地调度；动作授权的 Mock 会话还会发送 V1 STOP。不是物理急停。"
+        )
         self.stop_button.clicked.connect(self._global_stop)
         layout.addWidget(self.stop_button)
         return header
@@ -376,7 +386,14 @@ class MainWindow(QMainWindow):
         with suppress(PermissionError, RuntimeError, ValueError):
             if self.teach_view_model.state.value == "recording":
                 self.teach_view_model.stop()
-        self.notification_center.setText("软件 STOP | 非急停 | 点动/回放已停止")
+        self.software_stop_view_model.request_stop()
+
+    def _motion_workflow_active(self) -> bool:
+        return (
+            self.manual_view_model.holding
+            or self.trajectory_view_model.playback.progress.state.value in {"playing", "paused"}
+            or self.teach_view_model.state.value == "recording"
+        )
 
     def _mode_changed(self, text: str) -> None:
         self.trajectory_view_model.abort_playback("mode_changed")
