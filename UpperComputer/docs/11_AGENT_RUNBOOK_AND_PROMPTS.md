@@ -3,6 +3,12 @@
 ## 1. 最短启动句
 
 ```text
+读取 UpperComputer/docs/AGENT_HANDOFF_2026-08-01.md 与 IMPLEMENTATION_STATUS.md，以 git 最新 master 为准；从状态文档标记的下一单元（当前为 R15）开始，遵守 AGENTS.md 与 SafetyGate，保持 V1 兼容，不把 V2 当已实现，Serial 默认只读；完成本单元实现、测试、文档与独立提交后停止报告。
+```
+
+兼容旧句（仍有效）：
+
+```text
 严格按照 UpperComputer/AGENTS.md、PROJECT_SPEC.yaml 和 docs/16_AGENT_EXECUTION_MANIFEST.yaml，从 IMPLEMENTATION_STATUS.md 标记的首个未完成上位机单元开始，完成本单元全部实现、测试、集成、文档和独立 Git 提交后停止报告，禁止绕过协议审批与机械安全门。
 ```
 
@@ -50,11 +56,13 @@ Agent仍需复述边界后才能执行。
 
 新Agent应：
 
-1. 读取根和嵌套AGENTS。
-2. 读取`IMPLEMENTATION_STATUS.md`（创建后）。
-3. 现场运行git status。
-4. 验证最近测试，不重复已完成且未变化的大规模工作。
-5. 只进入状态文档指定的下一单元。
+1. 读取 `docs/AGENT_HANDOFF_2026-08-01.md`（最新交接）。
+2. 读取 `IMPLEMENTATION_STATUS.md` 与 `UpperComputer/AGENTS.md`。
+3. 现场运行 `git status --short` 与 `git log --oneline -10`。
+4. 在 `UpperComputer/` 下 `uv run pytest -q`（或至少跑与本单元相关测试）。
+5. 确认 MCU 路径为本机实际检出（macOS 与 Win 文档路径不同）。
+6. 只进入状态文档指定的下一单元（交接时为 **R15**）。
+7. 不重复 R1～R14 已完成工作；不提交 `.idea` / `.DS_Store` / 本机路径备忘。
 
 ## 9. 为什么不是“一句话无监督跑到底”
 

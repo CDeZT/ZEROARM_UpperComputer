@@ -48,33 +48,25 @@ UpperComputer/
 
 ## 3. 文档阅读顺序
 
-1. `AGENTS.md`：Agent 强制执行规则和实施单元。
-2. `PROJECT_SPEC.yaml`：机器可读的范围、性能和审批门。
-3. `docs/IMPLEMENTATION_STATUS.md`：确定首个未完成单元，禁止从头重做。
-4. `docs/01_PRODUCT_REQUIREMENTS.md`：完整产品需求。
-5. `docs/02_TECHNICAL_ARCHITECTURE.md`：模块、线程和数据流。
-6. `docs/03_GUI_UX_SPECIFICATION.md`：页面和交互细节。
-7. `docs/04_PROTOCOL_V2_PROPOSAL.md`：当前协议问题和 V2 提案。
-8. `docs/05_IMPLEMENTATION_PLAN.md`：逐单元实现顺序。
-9. `docs/06_TEST_AND_ACCEPTANCE.md`：测试矩阵和验收标准。
-10. `docs/07_SAFETY_AND_HARDWARE_GATES.md`：危险动作边界。
-11. `docs/08_PACKAGING_RELEASE_OPERATIONS.md`：打包与发布。
-12. `docs/09_REFERENCE_ASSET_AUDIT.md`：参考资产和坐标差异。
-13. `docs/10_DECISIONS_APPROVALS.md`：决策和待审批事项。
-14. `docs/11_AGENT_RUNBOOK_AND_PROMPTS.md`：一句话入口和专项提示词。
-15. `docs/12_REQUIREMENT_TRACEABILITY.md`：需求到单元和测试的映射。
-16. `docs/13_MCU_REMEDIATION_PLAN.md`：MCU问题分级与修复顺序。
-17. `docs/14_DELEGATED_CODING_AGENT_BRIEF.md`：交给其他编码Agent的执行任务书。
-18. `docs/15_IMPLEMENTATION_BLUEPRINT.md`：精确目录、线程、页面和数据流蓝图。
-19. `docs/16_AGENT_EXECUTION_MANIFEST.yaml`：机器可读的 0～32 实施单元和验收门。
-20. `docs/17_API_DATA_AND_FIXTURE_CONTRACTS.md`：接口签名、线上偏移、数据库和 fixture 合同。
+**换 Agent / 恢复上下文时优先：**
+
+0. `docs/AGENT_HANDOFF_2026-08-01.md`：最新交接（进度、路径、下一单元、启动句）。
+1. `docs/IMPLEMENTATION_STATUS.md`：现场基线，禁止从头重做。
+2. `AGENTS.md`：强制规则。
+3. `PROJECT_SPEC.yaml`：产品决策。
+
+**按需深入：**
+
+4. `docs/01_PRODUCT_REQUIREMENTS.md`～`docs/20_RELEASE_ACCEPTANCE.md`
+5. `docs/14_DELEGATED_CODING_AGENT_BRIEF.md` / `15` / `16` / `17` 实施合同
+6. `README_DEVELOPMENT.md`：uv / ruff / mypy / pytest 命令
+
+当前进度摘要（2026-08-01）：**R1～R14 已完成**，下一单元 **R15 打包发布**；协议 V2 未批准。
 
 ## 4. 一句话启动
 
-后续可以在仓库根目录对 Agent 说：
-
 ```text
-严格按照 UpperComputer/AGENTS.md、PROJECT_SPEC.yaml 和 docs/16_AGENT_EXECUTION_MANIFEST.yaml，从 IMPLEMENTATION_STATUS.md 标记的首个未完成上位机单元开始，完成本单元全部实现、测试、集成、文档和独立 Git 提交后停止报告，禁止绕过协议审批与机械安全门。
+读取 UpperComputer/docs/AGENT_HANDOFF_2026-08-01.md 与 IMPLEMENTATION_STATUS.md，从 R15 开始，遵守 AGENTS.md，保持 V1 兼容与 Serial 只读默认，完成实现测试文档与独立提交后停止。
 ```
 
 这句话已经给出完整上下文入口，不需要再次解释技术栈和功能范围。但它不会

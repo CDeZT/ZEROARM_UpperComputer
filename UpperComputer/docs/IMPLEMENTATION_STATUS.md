@@ -2,15 +2,18 @@
 
 更新时间：2026-08-01
 
+**新 Agent 交接全文**：`AGENT_HANDOFF_2026-08-01.md`（路径、进度、启动句、已知问题）。
+
 ## 当前状态
 
 ```text
-阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
+阶段：0.1.0 离线软件基线 + 当前 MCU V1 迁移主路径已通（Mock GUI 可演示）
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
 最近完成：R14 + GUI 成品化（会话录制、Evidence、轨迹导入导出、Recipe/数据集/标定接线）
-当前/下一单元：R15 打包/发布刷新（便携包烟雾、能力矩阵）
-当前代码修改：R1～R14 已完成
+当前/下一单元：R15 打包/发布刷新（便携包烟雾、能力矩阵、干净环境启动）
+Git tip（交接时）：cff0480 — 以 git log 现场为准
+验证基线（R14）：pytest 261 passed / 4 skipped（可 ignore test_assets 预存哈希问题）
 ```
 
 ## R14 + GUI 成品化完成记录
@@ -193,18 +196,18 @@
 
 ## 当前 MCU 事实
 
-- MCU 仓库：`C:\Users\Administrator\CLionProjects\zero_arm_mcu`，当前检查基线
-  `main` @ `48c11d8`。
+- MCU **不在**本仓；路径按机器：
+  - Win 文档基线：`C:\Users\Administrator\CLionProjects\zero_arm_mcu`
+  - 当前 macOS 开发机：`/Users/wangzilin/STM32Cube/zero_arm_mcu`
+- 协议核验基线曾用：`main` @ `48c11d8`（以本机 MCU `git rev-parse HEAD` 为准）。
 - 当前兼容协议仍为 V1：115200、60 字节 GET_STATE、一个请求在途。
 - 可用/回零轴：J1、J3、J4、J5，mask `0x1D`；J2/J6 当前 Unavailable。
 - HOME 已实现，顺序 J5→J4→J3→J1；20 秒无主机帧且空闲时自动回零。GET_STATE
-  同样会重置 MCU 计时，因此 R8 将另建 20 秒无用户动作的 Desktop 主动 HOME。
+  同样会重置 MCU 计时；Desktop 另有 20 秒无操作者动作的主动 HOME（R8）。
 - PD15 为低有效 E-stop，触发后必须复位。
 - J3 0～135°、J4 -90～90°、J5 -35～135°，存在 J3/J4/J5 强制互锁。
 - MotionTask 20 ms 是轮询周期，普通目标生产路径不是持续 50 Hz MCU 插值流。
 - 调试固件包含台架 `0x20～0x27` 和夹爪 STS `0x30～0x34` 命令。
-
-完整事实见 `21_MCU_CURRENT_BASELINE.md`。
 
 ## 状态边界
 
@@ -242,5 +245,11 @@ MCU 的 J1/J3/J4/J5 已有现场动作与自动回零测试，不再描述为“
 
 ## 工作区保护
 
-仓库当前已有 `.idea` 修改和未跟踪文件，它们不是本轮规划内容，不清理、不覆盖、
-不提交。后续单元每轮必须重新运行 `git status --short`。
+常见勿提交：`.idea/`、`.DS_Store`、根目录本机 `MCU 源码路径.md`。  
+它们不是功能交付内容，不清理、不覆盖、不提交。每轮开始必须 `git status --short`。
+
+## 给下一 Agent 的停止点
+
+- **现在停在 R14 完成 / R15 未开始。**
+- 不要重做 R1～R14，除非回归失败。
+- 用户换 Agent 时优先读 `AGENT_HANDOFF_2026-08-01.md`。

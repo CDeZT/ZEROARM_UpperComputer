@@ -90,17 +90,26 @@ uv run python packaging/build_portable.py
 
 ```text
 [x] 单元0～24软件能力完成
+[x] R1～R14 Mock 主路径可演示（已提交）
+[x] 用户指南 / 已知限制 / 能力矩阵文档已起草（工作区，见 docs/USER_GUIDE.md 等）
+[x] 打包 dry-run 输入清单脚本已增强（macOS 可检文档齐备；Windows 真构建待做）
 [ ] 便携包在干净Windows无系统Python环境启动
 [ ] 安装/升级/卸载保留用户数据
-[ ] 清单哈希已记录
-[ ] 已知限制已写入手册
+[ ] 清单哈希已记录于实际 dist 产物
 [ ] 用户另行授权版本标签/外部发布
 ```
 
 当前结论：
 
 ```text
-软件功能主线已完成到审批门
-打包脚本与发布验收基线已建立
+软件功能主线 R1～R14 已提交
+R15 发布刷新半成品在工作区（未提交）
+Windows 真打包与干净环境烟雾仍待做
 真实板测与动作验收仍阻塞
 ```
+
+## 8. R15 进行中备注（2026-08-01 晚）
+
+- 详见 `docs/AGENT_HANDOFF_2026-08-01-LATE.md`。
+- 本机若在 macOS：优先 `uv run python packaging/build_portable.py --dry-run`。
+- Windows 上再执行完整 build，并把 ZIP/exe SHA-256 回填本节。

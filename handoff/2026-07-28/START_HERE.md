@@ -1,6 +1,6 @@
 # ZEROARM 工作交接入口
 
-更新时间：2026-07-28
+更新时间：2026-07-28（上位机最新交接见仓库根 `START_HERE.md` 与 `UpperComputer/docs/AGENT_HANDOFF_2026-08-01.md`，2026-08-01）
 
 ## 1. 交付范围
 

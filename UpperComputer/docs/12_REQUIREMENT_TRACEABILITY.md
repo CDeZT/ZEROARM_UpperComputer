@@ -18,8 +18,8 @@
 | 夹爪 | R1、R2、R12 | STS帧、只读诊断、校准profile、动作门；硬件门可延期 |
 | 诊断/台架 | R1、R13 | 无透传、参数验证、命令审计、保护配置证据 |
 | 固件运维 | R4、R13 | artifact/hash/target/SN/verify/reset/HELLO |
-| 数据/性能 | R14 | schema、OperationEvidence、soak、队列和时延指标 |
-| 打包/发布 | R15 | 无Python Windows、Mock、资源、升级保留、能力矩阵 |
+| 数据/性能 | R14 **已完成** | OperationEvidence、SessionRecording、PerformanceSampler、诊断导出 |
+| 打包/发布 | R15 **下一单元** | 无Python Windows、Mock、资源、升级保留、能力矩阵 |
 
 ## 2. 非功能需求证据
 
