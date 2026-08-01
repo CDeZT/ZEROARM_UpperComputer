@@ -34,6 +34,7 @@ class CartesianPage(QWidget):
         self.status = QLabel("仅离线预览 | V1无Cartesian命令 | 禁止发送")
         self.status.setObjectName("ik_status")
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(36, 32, 36, 32)
         layout.addWidget(title)
         layout.addLayout(form)
         layout.addWidget(solve)

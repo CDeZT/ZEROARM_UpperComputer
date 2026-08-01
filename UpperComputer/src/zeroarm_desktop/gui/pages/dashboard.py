@@ -3,6 +3,7 @@
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 
+from zeroarm_desktop.domain.hardware_profile import HardwareProfile
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 
 
@@ -64,8 +65,20 @@ class DashboardPage(QWidget):
             self.freshness.setText("新鲜度 --")
             self.auto_home.setText("")
         else:
+            profile = HardwareProfile.default()
+            available = "/".join(
+                f"J{capability.index + 1}"
+                for capability in profile.capabilities
+                if capability.available
+            )
+            unavailable = "/".join(
+                f"J{capability.index + 1}"
+                for capability in profile.capabilities
+                if not capability.available
+            )
             self.profile.setText(
-                "PROFILE zeroarm_g474_v1_partial | 可用 J1/J3/J4/J5 | J2/J6 Unavailable"
+                f"PROFILE {profile.profile_id} | 可用 {available} | "
+                f"{unavailable or '无'} Unavailable"
             )
             authorized = "运动已授权" if readiness.motion_authorized else "运动未授权"
             homed = "已回零" if readiness.homed_complete else "未回零"

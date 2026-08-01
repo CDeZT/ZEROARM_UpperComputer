@@ -219,6 +219,10 @@ class MainWindow(QMainWindow):
             self.notification_center.setText("Safe Mode | 3D 已降级 | Serial 动作仍禁用")
         shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
         shortcut.activated.connect(lambda: self.navigate("connection"))
+        diagnostics_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
+        diagnostics_shortcut.activated.connect(lambda: self.navigate("diagnostics"))
+        self.stop_shortcut = QShortcut(QKeySequence("Space"), self)
+        self.stop_shortcut.activated.connect(self._global_stop)
 
     def register_page(self, route: str, page: QWidget) -> None:
         if route in self._pages:
@@ -256,7 +260,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(product)
         profile = QLabel("V1 · profile 0x1D · Serial 默认只读")
         profile.setObjectName("profile_chip")
-        profile.setStyleSheet("color: #9fb0bc; padding-left: 12px;")
         layout.addWidget(profile)
         layout.addStretch()
         self.connection_badge = QLabel("未连接")
@@ -283,7 +286,7 @@ class MainWindow(QMainWindow):
         self.stop_button = QPushButton("软件停止 · 非急停")
         self.stop_button.setObjectName("global_stop_button")
         self.stop_button.setToolTip("仅停止 Mock 点动/回放等软件动作，不是物理急停")
-        self.stop_button.clicked.connect(lambda: self.manual_view_model.stop_hold("global_stop"))
+        self.stop_button.clicked.connect(self._global_stop)
         layout.addWidget(self.stop_button)
         return header
 
@@ -329,7 +332,7 @@ class MainWindow(QMainWindow):
         )
         for group_title, items in groups:
             heading = QLabel(group_title)
-            heading.setStyleSheet("color: #7f93a1; font-size: 11px; padding: 8px 4px 2px 4px;")
+            heading.setObjectName("nav_group_heading")
             layout.addWidget(heading)
             for route, text in items:
                 button = QPushButton(text)
@@ -366,6 +369,14 @@ class MainWindow(QMainWindow):
 
     def _toggle_theme(self) -> None:
         self.apply_theme("light" if self._theme_name == "dark" else "dark")
+
+    def _global_stop(self) -> None:
+        self.manual_view_model.stop_hold("global_stop")
+        self.trajectory_view_model.abort_playback("global_stop")
+        with suppress(PermissionError, RuntimeError, ValueError):
+            if self.teach_view_model.state.value == "recording":
+                self.teach_view_model.stop()
+        self.notification_center.setText("软件 STOP | 非急停 | 点动/回放已停止")
 
     def _mode_changed(self, text: str) -> None:
         self.trajectory_view_model.abort_playback("mode_changed")

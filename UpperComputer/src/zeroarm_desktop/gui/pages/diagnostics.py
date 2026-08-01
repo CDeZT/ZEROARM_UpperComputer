@@ -109,6 +109,7 @@ class ProtocolConsolePage(QWidget):
         self.result = QLabel("仅允许 HELLO/GET_STATE/夹爪Ping/台架Query | 不提供任意 HEX 直发")
         self.result.setObjectName("console_result")
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(36, 32, 36, 32)
         for widget in (title, self.command, send, self.result):
             layout.addWidget(widget)
         layout.addStretch()

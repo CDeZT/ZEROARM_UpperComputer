@@ -43,6 +43,7 @@ class GamepadRecipePage(QWidget):
         layout.setContentsMargins(36, 32, 36, 32)
         for widget in (title, self.status, validate, run, hold, release, self.preview):
             layout.addWidget(widget)
+        layout.addStretch()
 
     def validate_demo(self) -> None:
         recipe = self._demo_recipe()

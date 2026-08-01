@@ -1,5 +1,7 @@
 """Mock and Serial connection page backed by DeviceSession."""
 
+from contextlib import suppress
+
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
@@ -70,6 +72,11 @@ class ConnectionPage(QWidget):
         self.timeline = QLabel("等待连接")
         self.timeline.setObjectName("handshake_timeline")
         self.timeline.setWordWrap(True)
+        self._timeline_events: list[str] = ["等待连接"]
+        self.error_label = QLabel()
+        self.error_label.setObjectName("connection_error")
+        self.error_label.setWordWrap(True)
+        self.error_label.setVisible(False)
         self.identity = QLabel("固件: 未知 | 协议: 未知 | 能力: V1 未提供")
         self.identity.setObjectName("identity_summary")
 
@@ -84,6 +91,7 @@ class ConnectionPage(QWidget):
         layout.addWidget(QLabel("握手时间线"))
         layout.addWidget(self.timeline)
         layout.addWidget(self.identity)
+        layout.addWidget(self.error_label)
         safety = QLabel("安全提示：软件停止 ≠ 物理急停；J2/J6 Unavailable；真实动作需单独授权。")
         safety.setObjectName("connection_safety_note")
         safety.setWordWrap(True)
@@ -94,56 +102,83 @@ class ConnectionPage(QWidget):
 
     @Slot()
     def refresh_ports(self) -> None:
+        if not self.refresh_button.isEnabled():
+            return
+        self.refresh_button.setEnabled(False)
         self.port_selector.clear()
-        ports = discover_serial_ports()
-        for port in ports:
-            self.port_selector.addItem(
-                f"{port.device} | {port.description or '无描述'}",
-                port.device,
-            )
-        if not ports:
-            self.port_selector.addItem("未发现串口", None)
+        try:
+            ports = discover_serial_ports()
+            for port in ports:
+                self.port_selector.addItem(
+                    f"{port.device} | {port.description or '无描述'}",
+                    port.device,
+                )
+            if not ports:
+                self.port_selector.addItem("未发现串口", None)
+        except Exception as error:
+            self.port_selector.addItem("端口发现失败", None)
+            self._set_error(f"端口发现失败: {error}")
+        finally:
+            self.refresh_button.setEnabled(True)
 
     @Slot()
     def toggle_connection(self) -> None:
-        if self.session is not None and self.session.state is not SessionState.DISCONNECTED:
-            self.session.disconnect()
-            self.session = None
-            self.connect_button.setText("连接")
-            self.identity.setText("固件: 未知 | 协议: 未知 | 能力: V1 未提供")
-            self.connection_text_changed.emit("未连接")
-            self.session_changed.emit(None)
+        session = self.session
+        if session is not None and session.state not in (
+            SessionState.DISCONNECTED,
+            SessionState.FAULTED,
+        ):
+            self._teardown_session()
             return
+        if session is not None:
+            with suppress(Exception):
+                session.disconnect()
         try:
             transport = self._make_transport()
-            session = DeviceSession(
+            new_session = DeviceSession(
                 transport,
                 poll_rate_hz=self._selected_poll_rate(),
                 actions_allowed=isinstance(transport, MockTransport),
             )
-            session.subscribe_events(self._session_event_received.emit)
-            self.session = session
-            self.session_changed.emit(session)
-            self.timeline.setText("OPENING -> HANDSHAKING")
-            session.connect()
+            new_session.subscribe_events(self._session_event_received.emit)
+            self.session = new_session
+            self.session_changed.emit(new_session)
+            self._set_error("")
+            self.connect_button.setText("连接中…")
+            self.connect_button.setEnabled(False)
+            self._append_timeline("OPENING -> HANDSHAKING")
+            new_session.connect()
         except Exception as error:
-            self.timeline.setText(f"连接失败: {error}")
+            self._set_error(f"连接失败: {error}")
             self.connection_text_changed.emit("连接失败")
-            return
-        if session.state is SessionState.READONLY_READY:
-            self.connect_button.setText("断开")
-            self.connection_text_changed.emit("只读已连接")
-            identity = session.identity
-            if identity is not None:
-                self.identity.setText(
-                    f"固件: {identity.hello_text} | 协议: V{identity.protocol_generation} | "
-                    "能力: V1 未提供"
-                )
+            self.connect_button.setText("连接")
+            self.connect_button.setEnabled(True)
 
     def close_session(self) -> None:
         if self.session is not None:
             self.session.disconnect()
             self.session = None
+
+    def _teardown_session(self) -> None:
+        if self.session is None:
+            return
+        with suppress(Exception):
+            self.session.disconnect()
+        self.session = None
+        self.connect_button.setText("连接")
+        self.connect_button.setEnabled(True)
+        self.identity.setText("固件: 未知 | 协议: 未知 | 能力: V1 未提供")
+        self.connection_text_changed.emit("未连接")
+        self.session_changed.emit(None)
+
+    def _set_error(self, text: str) -> None:
+        self.error_label.setText(text)
+        self.error_label.setVisible(bool(text))
+
+    def _append_timeline(self, text: str) -> None:
+        self._timeline_events.append(text)
+        del self._timeline_events[:-8]
+        self.timeline.setText("\n".join(self._timeline_events))
 
     def _make_transport(self) -> MockTransport | SerialTransport:
         if self.transport_selector.currentText() == "Mock":
@@ -167,4 +202,33 @@ class ConnectionPage(QWidget):
 
     @Slot(object)
     def _apply_session_event(self, event: SessionEvent) -> None:
-        self.timeline.setText(f"{self.timeline.text()} -> {event.state.value}: {event.detail}")
+        self._append_timeline(f"{event.state.value}: {event.detail}")
+        state = event.state
+        if state is SessionState.READONLY_READY:
+            self.connect_button.setText("断开")
+            self.connect_button.setEnabled(True)
+            self._set_error("")
+            self.connection_text_changed.emit("只读已连接")
+            identity = self.session.identity if self.session is not None else None
+            if identity is not None:
+                self.identity.setText(
+                    f"固件: {identity.hello_text} | 协议: V{identity.protocol_generation} | "
+                    "能力: V1 未提供"
+                )
+        elif state in (
+            SessionState.OPENING,
+            SessionState.HANDSHAKING,
+            SessionState.RECONNECT_WAIT,
+        ):
+            self.connect_button.setText("连接中…")
+            self.connect_button.setEnabled(False)
+        elif state is SessionState.CLOSING:
+            self.connect_button.setText("断开中…")
+            self.connect_button.setEnabled(False)
+        elif state is SessionState.FAULTED:
+            self.connect_button.setText("连接")
+            self.connect_button.setEnabled(True)
+            self._set_error(event.detail)
+        elif state is SessionState.DISCONNECTED:
+            self.connect_button.setText("连接")
+            self.connect_button.setEnabled(True)

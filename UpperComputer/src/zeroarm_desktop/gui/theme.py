@@ -48,6 +48,19 @@ QLabel#page_title {
 QLabel#page_subtitle {
     color: #9fb0bc;
 }
+QLabel#profile_chip {
+    color: #9fb0bc;
+}
+QLabel#nav_group_heading {
+    color: #7f93a1;
+}
+QLabel#connection_error {
+    background: #4a2222;
+    border: 1px solid #9a3d3d;
+    border-radius: 5px;
+    color: #ffd9d4;
+    padding: 8px 10px;
+}
 QLabel#badge,
 QLabel#connection_badge,
 QLabel#firmware_badge,
@@ -119,6 +132,19 @@ QLabel#page_title {
 }
 QLabel#page_subtitle {
     color: #5b6b78;
+}
+QLabel#profile_chip {
+    color: #5b6b78;
+}
+QLabel#nav_group_heading {
+    color: #6b7b88;
+}
+QLabel#connection_error {
+    background: #fde8e8;
+    border: 1px solid #dc2626;
+    border-radius: 5px;
+    color: #991b1b;
+    padding: 8px 10px;
 }
 QLabel#badge,
 QLabel#connection_badge,

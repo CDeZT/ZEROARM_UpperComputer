@@ -2,7 +2,7 @@
 
 import pyqtgraph as pg  # type: ignore[import-untyped]
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 
@@ -30,17 +30,28 @@ class JointMonitorPage(QWidget):
         colors = ("#4ac6b7", "#55a7ff", "#ffb454")
         self.curves = [
             self.plot.plot(name=name, pen=pg.mkPen(color, width=2))
-            for name, color in zip(("J1 Target", "J1 Actual", "J1 Error"), colors, strict=True)
+            for name, color in zip(("Target", "Actual", "Error"), colors, strict=True)
         ]
+        self.plot_axis = QComboBox()
+        self.plot_axis.setObjectName("joint_plot_axis")
+        self.plot_axis.addItems([f"J{index + 1}" for index in range(6)])
+        self.plot_axis.currentIndexChanged.connect(lambda _index: self._refresh_plot())
+        plot_row = QHBoxLayout()
+        plot_row.addWidget(QLabel("曲线轴:"))
+        plot_row.addWidget(self.plot_axis)
+        plot_row.addStretch()
+        self._last_state: SnapshotViewState | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(36, 32, 36, 32)
         layout.addWidget(title)
         layout.addLayout(grid)
+        layout.addLayout(plot_row)
         layout.addWidget(self.plot, 1)
         view_model.state_changed.connect(self.apply_state)
 
     @Slot(object)
     def apply_state(self, state: SnapshotViewState) -> None:
+        self._last_state = state
         for row, joint in zip(self.rows, state.joints, strict=False):
             if joint.index - 1 in state.unavailable_axes:
                 row[0].setText(f"J{joint.index} (Unavailable)")
@@ -57,17 +68,23 @@ class JointMonitorPage(QWidget):
             )
             for label, value in zip(row[1:], texts, strict=True):
                 label.setText(value)
-        if not state.samples:
+        self._refresh_plot()
+
+    def _refresh_plot(self) -> None:
+        state = self._last_state
+        if state is None or not state.samples:
             return
+        axis = self.plot_axis.currentIndex()
         x = [
             (sample.monotonic_ns - state.samples[0].monotonic_ns) / 1_000_000_000
             for sample in state.samples
         ]
-        target = [sample.target[0] for sample in state.samples]
-        actual = [sample.actual[0] for sample in state.samples]
+        target = [sample.target[axis] for sample in state.samples]
+        actual = [sample.actual[axis] for sample in state.samples]
         error = [
             target_value - actual_value
             for target_value, actual_value in zip(target, actual, strict=True)
         ]
-        for curve, series in zip(self.curves, (target, actual, error), strict=True):
-            curve.setData(x, series)
+        self.curves[0].setData(x, target)
+        self.curves[1].setData(x, actual)
+        self.curves[2].setData(x, error)

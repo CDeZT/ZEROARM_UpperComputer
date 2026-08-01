@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pyqtgraph as pg  # type: ignore[import-untyped]
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -30,6 +31,7 @@ class TrajectoryPage(QWidget):
         self.table.setObjectName("trajectory_table")
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels(("t(s)", "J1", "J2", "J3", "J4", "J5", "J6", "Grip"))
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.currentCellChanged.connect(
             lambda row, column, old_row, old_column: self._select(row)
         )
@@ -40,7 +42,7 @@ class TrajectoryPage(QWidget):
         self.constraint_report = QLabel()
         self.constraint_report.setObjectName("trajectory_constraint_report")
         self.constraint_report.setWordWrap(True)
-        buttons = QHBoxLayout()
+        edit_buttons = QHBoxLayout()
         for name, text, operation in (
             ("trajectory_validate_button", "验证", self._validate),
             ("trajectory_import_button", "导入 JSON", self._import_json),
@@ -49,6 +51,13 @@ class TrajectoryPage(QWidget):
             ("trajectory_smooth_button", "平滑", view_model.smooth),
             ("trajectory_undo_button", "撤销", view_model.undo),
             ("trajectory_redo_button", "重做", view_model.redo),
+        ):
+            button = QPushButton(text)
+            button.setObjectName(name)
+            button.clicked.connect(operation)
+            edit_buttons.addWidget(button)
+        playback_buttons = QHBoxLayout()
+        for name, text, operation in (
             ("playback_start_button", "Mock回放", self._playback_start),
             ("playback_pause_button", "暂停", view_model.pause_playback),
             ("playback_resume_button", "继续", view_model.resume_playback),
@@ -57,11 +66,12 @@ class TrajectoryPage(QWidget):
             button = QPushButton(text)
             button.setObjectName(name)
             button.clicked.connect(operation)
-            buttons.addWidget(button)
+            playback_buttons.addWidget(button)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.addWidget(title)
-        layout.addLayout(buttons)
+        layout.addLayout(edit_buttons)
+        layout.addLayout(playback_buttons)
         layout.addWidget(self.table, 1)
         layout.addWidget(self.plot, 1)
         layout.addWidget(self.status)
