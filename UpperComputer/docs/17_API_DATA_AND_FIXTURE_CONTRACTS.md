@@ -33,6 +33,7 @@ class SessionState(Enum):
 
 class Knowledge(Enum):
     UNKNOWN = "unknown"
+    REPORTED = "reported"
     COMMANDED = "commanded"
     ACCEPTED = "accepted"
     CONFIRMED = "confirmed"
@@ -83,6 +84,39 @@ class RobotSnapshot:
     current_ma: JointVector | None
 
 @dataclass(frozen=True, slots=True)
+class JointCapability:
+    available: bool
+    feedback: bool
+    limit_switch: bool
+    home: bool
+    continuous: bool
+    minimum_urad: int | None
+    maximum_urad: int | None
+    maximum_velocity_urad_s: int
+
+@dataclass(frozen=True, slots=True)
+class HardwareProfile:
+    profile_id: str
+    protocol_generation: int
+    installed_mask: int
+    feedback_mask: int
+    startup_limit_mask: int
+    home_mask: int
+    home_order: tuple[int, ...]
+    joints: tuple[JointCapability, ...]
+    gripper_installed: bool
+    gripper_calibration_hash: str | None
+
+@dataclass(frozen=True, slots=True)
+class Readiness:
+    readonly_ready: bool
+    motion_ready: bool
+    home_ready: bool
+    teach_ready: bool
+    gripper_action_ready: bool
+    reasons: tuple[str, ...]
+
+@dataclass(frozen=True, slots=True)
 class JointTarget:
     joint_urad: JointVector
     duration_ms: int
@@ -108,10 +142,25 @@ class LinkStatistics:
     reconnects: int
     queue_rejections: int
     poll_coalesced: int
+
+@dataclass(frozen=True, slots=True)
+class OperationEvidence:
+    operation_id: str
+    firmware_identity: FirmwareIdentity
+    profile_id: str
+    calibration_hash: str
+    authorization_text: str | None
+    command_frames: tuple[bytes, ...]
+    result_raw: int | None
+    outcome: OutcomeStatus
+    before_generation: int | None
+    after_generation: int | None
+    notes: tuple[str, ...]
 ```
 
-V1中mask当前虽然在线上有字节，但MCU尚未完成真实闭环；上位机Domain可保存raw
-值，同时通过知识状态标识“reported but not confirmed”，GUI不能把0写成“已确认失能”。
+V1 中 enabled/homed/moving mask 是 MCU 侧报告模型值，不是驱动器确认。Domain 保存 raw
+值并标识 `reported`；GUI 不能把 0 写成“驱动器已确认失能”。当前 moving 来自 actual
+误差，homed 来自回零流程；J2/J6 还必须结合 HardwareProfile 显示 Unavailable。
 
 ## 4. 当前 V1 线协议
 
@@ -138,6 +187,16 @@ CRC = Dallas/Maxim reflected polynomial 0x8C, initial 0x00
 | 0x07 | TEACH_START | joint mask 1B | result 1B |
 | 0x08 | TEACH_STOP | 空 | result 1B |
 | 0x09 | CLEAR_FAULT | 空 | result 1B |
+
+当前调试固件还编译：
+
+| 范围 | 用途 | 上位机合同 |
+|---|---|---|
+| 0x20～0x27 | 电机台架查询/动作/设零/保护参数 | Debug受限表单；动作逐条确认；禁止任意透传 |
+| 0x30～0x34 | STS夹爪Ping/读/写/移动/扭矩 | 未安装/未标定时只允许Ping/读 |
+
+精确 payload 以 `21_MCU_CURRENT_BASELINE.md` 和当前 MCU `protocol.h/messages.c` 为准；
+R1 完成时必须建立稳定 fixture 和长度测试。
 
 SET_JOINT_TARGET请求：
 
@@ -306,6 +365,24 @@ required_confirmation_text: str | None
 SafetyGate必须纯计算、确定性、无UI弹窗和无串口副作用。CommandService负责检查
 preview哈希、Arm token、snapshot generation和校准哈希仍匹配，再允许编码。
 
+### 8.1 操作空闲回零与受控退出
+
+```python
+class OperatorIdleHomePolicy(Protocol):
+    def note_operator_action(self, monotonic_ns: int) -> None: ...
+    def remaining_ns(self, now_ns: int) -> int: ...
+    def evaluate(self, now_ns: int, snapshot: RobotSnapshot) -> IdleHomeDecision: ...
+
+class ControlledShutdownService(Protocol):
+    def prepare(self) -> ShutdownPlan: ...
+    def execute_home_then_disconnect(self, plan: ShutdownPlan) -> RequestHandle: ...
+    def force_disconnect_without_home(self, confirmation: str) -> RequestHandle: ...
+```
+
+operator-idle 只由用户动作/动作指令更新时间，不由 GET_STATE 更新；到期通过普通 HOME
+服务发送 `0x1D`，继续轮询并观察完成。MCU link-silence 计时属于固件断连兜底，不能通过
+停止正常状态轮询来实现产品的无操作回零。
+
 ## 9. Recorder 与数据库接口
 
 ```python
@@ -363,8 +440,16 @@ class PlaybackEngine(Protocol):
     def abort(self, reason: str) -> None: ...
 ```
 
-调度使用monotonic clock；迟到点直接跳过并计数，不以burst追赶。V1最高50 Hz。
+调度使用 monotonic clock；迟到点直接跳过并计数，不以 burst 追赶。V1 主机动作上限
+50 Hz 是 Desktop 限频策略；MCU 普通路径每个 target generation 一次提交最终目标。
 示教raw点只追加，不原地平滑；processed轨迹另存并记录父raw哈希。
+
+### 10.1 当前 profile 路径合同
+
+- 任何点包含非零 J2/J6 目标都拒绝。
+- J1 按 continuous/wrap 策略处理。
+- J3/J4/J5 每个重采样点执行三级范围和降 J3 清障规则。
+- 轨迹验证报告包含具体点索引、关节、actual/target 和违反的阈值。
 
 ## 11. 3D 与运动学
 
@@ -420,8 +505,16 @@ Signal payload为不可变领域对象。不得发送会被worker继续修改的
 | `V1-HELLO-REQ` | `AA 01 00 00 55` |
 | `V1-HELLO-RSP` | 当前HELLO完整响应 |
 | `V1-STATE-READY-ZERO` | 60字节READY、mask0、fault0 |
+| `V1-STATE-READY-HOMED-1D` | 当前profile READY、enabled/homed/moving/fault明确 |
+| `V1-STATE-STARTUP-FAULT` | required limits未满足、STARTUP bit9 |
+| `V1-STATE-ESTOP-FAULT` | ESTOP bit11、reset-required |
 | `V1-RESULT-OK-CMD02` | ENABLE命令result OK帧 |
 | `V1-TARGET-MIXED-SIGNS` | 正负六轴、duration、gripper |
+| `V1-HOME-MASK-1D` | 当前profile HOME请求 |
+| `V1-TARGET-FORBIDDEN-J2` | profile层必须拒绝，不得进入Transport |
+| `V1-TARGET-FORBIDDEN-J6` | profile层必须拒绝，不得进入Transport |
+| `V1-BENCH-QUERY-MOTOR1` | Debug台架只读查询 |
+| `V1-GRIPPER-PING` | STS夹爪只读Ping |
 | `V1-BAD-CRC` | 单bit CRC损坏 |
 | `V1-BAD-ETX` | ETX损坏 |
 | `V1-LEN-ZERO` | LEN=0 |
@@ -432,9 +525,19 @@ Signal payload为不可变领域对象。不得发送会被worker继续修改的
 | `SAFETY-STALE-SNAPSHOT` | 超过新鲜度阈值 |
 | `SAFETY-GRAVITY-UNSUPPORTED` | 重力轴未支撑 |
 | `TRAJ-LATE-POINTS` | 回放迟到且禁止追赶 |
+| `TRAJ-UNSAFE-MIDPOINT` | 终点合法但中间点违反J3/J4/J5互锁 |
 | `DB-MIGRATION-N-1` | 上一schema数据库 |
 
 黄金帧由独立参考实现或实际板卡抓取得到，并记录来源、日期、固件commit和SHA-256。
+
+> R1 状态（2026-08-01）：上表 V1 条目已在 `protocol/fixtures.py` 全部固化
+> （29 个帧，含 `V1-STATE-READY-ZERO`、`V1-STATE-READY-HOMED-1D`、
+> `V1-STATE-STARTUP-FAULT`、`V1-STATE-ESTOP-FAULT`、`V1-HOME-MASK-1D`、
+> `V1-TARGET-MIXED-SIGNS`、`V1-TARGET-FORBIDDEN-J2/J6`、台架 0x20～0x27 与
+> 夹爪 0x30～0x34 的请求/响应帧），每个 fixture 的 SHA-256 登记在
+> `FIXTURE_SHA256` 并由 `tests/protocol/test_v1_fixture_hashes.py` 守护；
+> 来源为 `zero_arm_mcu` `main` @ `48c11d8` 源码 + 上位机 CRC 构造。
+> 实机抓帧逐字节复核在 R4 只读板测时进行。
 
 ## 15. Contract Test 命名
 
