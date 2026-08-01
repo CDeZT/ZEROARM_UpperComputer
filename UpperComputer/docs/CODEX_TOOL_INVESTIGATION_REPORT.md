@@ -321,9 +321,21 @@ CLI 等价：`codex mcp add qt-docs --url https://qt-docs-mcp.qt.io/mcp`（需�
 - 移除命令：`codex mcp remove qt-docs`。
 - 说明：MCP 与新安装的技能需**新会话/重启 Codex** 后生效；当前会话不会自动加载。
 
-### 11.5 待办（下一步可选）
+### 11.5 实测结论（2026-08-01 新会话）
 
-1. 重启/新会话后执行 `/skills`，确认 4 个外部 + 6 个自建技能可见；用 `qt_documentation_search` 实测 PySide6 覆盖。
+**qt-docs MCP 不覆盖 PySide6 / Qt for Python 文档。**
+
+实测：`tools/list` 正常返回 `qt_documentation_search`（qt-docs-server 0.2.0）；
+`product="pyside6"` 返回错误 `No documentation for product 'pyside6'`，可用产品仅包含
+`qt`（C++）、`qtcreator`、`qtdesignstudio`、`squish` 等，**没有 qtforpython/pyside6**。
+默认产品搜索 `QPushButton`（module=qtwidgets）命中正常，可检索 Qt 6.8.4/6.11.0 C++ API。
+
+结论：该 MCP 只能作 C++ 语义参考（类名/信号名与 PySide6 基本一致），
+不能直接检索 PySide6 文档；PySide6 实时文档缺口按计划由 Context7 补齐（条件项）。
+
+### 11.6 待办（下一步可选）
+
+1. 重启/新会话后执行 `/skills`，确认 4 个外部 + 6 个自建技能可见（已完成）；qt-docs PySide6 覆盖已实测为**不覆盖**（见 11.5）。
 2. 可选补装：mattpocock `tdd`（`--repo mattpocock/skills --path skills/engineering/tdd`）。
 3. 条件项：Context7（Qt MCP 不覆盖 PySide6 时）、mcp-windows（Windows 验收阶段）。
 4. 修复 R15 未提交改动的质量门（prefer_mock 默认回归 + ruff 9 处），与本次安装无关、尚未处理。
@@ -351,7 +363,7 @@ CLI 等价：`codex mcp add qt-docs --url https://qt-docs-mcp.qt.io/mcp`（需�
 
 | 项 | 状态 | 已检查来源 |
 |---|---|---|
-| qt-documentation-mcp 是否覆盖 PySide6/Qt for Python 文档 | **无法确认**（官方只声明 Qt 6.8.4/6.11.0 C++ 模块文档） | Qt MCP index.md、PulseMCP、doc.qt.io |
+| qt-documentation-mcp 是否覆盖 PySide6/Qt for Python 文档 | **已实测：不覆盖**（product=pyside6 返回“No documentation for product”） | 本机 tools/call 实测 |
 | oimiragieo/agent-studio 许可证 | **无法确认**（根目录无 LICENSE 文件） | raw 探测 LICENSE/LICENSE.md/LICENSE.txt/COPYING/LICENSES.md 均 404 |
 | Servo MCP 的 Codex 兼容性与维护状态 | **无法确认**（仅 npm 元数据） | npm registry |
 | Supercent/Mistakenot code-review 许可证 | **无法确认** | 聚合站点快照 |
