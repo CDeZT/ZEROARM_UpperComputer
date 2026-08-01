@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from threading import RLock
+from threading import RLock, Timer
 
 from zeroarm_desktop.domain.errors import TransportDisconnected
 from zeroarm_desktop.transport.base import (
@@ -11,6 +11,7 @@ from zeroarm_desktop.transport.base import (
     LinkStateEvent,
     Subscription,
     TransportStatistics,
+    WritePriority,
 )
 from zeroarm_desktop.transport.mock_device import MockDevice, MockDeviceSettings, MockFaults
 
@@ -22,6 +23,7 @@ class MockSettings:
     startup_limits_active: bool = True
     auto_home_idle_ms: int = 20_000
     home_fails: bool = False
+    response_delay_ms: int = 0
 
     def device_settings(self) -> MockDeviceSettings:
         return MockDeviceSettings(
@@ -44,6 +46,7 @@ class MockTransport:
         self._bytes_callbacks = CallbackRegistry()
         self._state_callbacks = CallbackRegistry()
         self._lock = RLock()
+        self._response_timers: list[Timer] = []
 
     @property
     def device(self) -> MockDevice:
@@ -72,10 +75,17 @@ class MockTransport:
         with self._lock:
             if self._state is LinkState.CLOSED:
                 return
+            timers = tuple(self._response_timers)
+            self._response_timers.clear()
+        for timer in timers:
+            timer.cancel()
         self._set_state(LinkState.CLOSING)
         self._set_state(LinkState.CLOSED)
 
-    def write(self, data: bytes) -> None:
+    def write(
+        self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL
+    ) -> None:
+        del priority
         if not isinstance(data, bytes):
             raise TypeError("transport data must be bytes")
         owned = bytes(data)
@@ -91,16 +101,18 @@ class MockTransport:
                 disconnects=current.disconnects,
             )
         for response in self._device.receive(owned):
-            with self._lock:
-                current = self._statistics
-                self._statistics = TransportStatistics(
-                    bytes_rx=current.bytes_rx + len(response),
-                    bytes_tx=current.bytes_tx,
-                    writes_accepted=current.writes_accepted,
-                    queue_rejections=current.queue_rejections,
-                    disconnects=current.disconnects,
+            if self.settings.response_delay_ms > 0:
+                timer = Timer(
+                    self.settings.response_delay_ms / 1_000,
+                    self._publish_response,
+                    args=(response,),
                 )
-            self._bytes_callbacks.publish(response)
+                timer.daemon = True
+                with self._lock:
+                    self._response_timers.append(timer)
+                timer.start()
+            else:
+                self._publish_response(response)
 
     def subscribe_bytes(self, callback: Callable[[bytes], None]) -> Subscription:
         return self._bytes_callbacks.subscribe(callback)
@@ -113,3 +125,17 @@ class MockTransport:
             previous = self._state
             self._state = state
         self._state_callbacks.publish(LinkStateEvent(previous, state))
+
+    def _publish_response(self, response: bytes) -> None:
+        with self._lock:
+            if self._state is not LinkState.OPEN:
+                return
+            current = self._statistics
+            self._statistics = TransportStatistics(
+                bytes_rx=current.bytes_rx + len(response),
+                bytes_tx=current.bytes_tx,
+                writes_accepted=current.writes_accepted,
+                queue_rejections=current.queue_rejections,
+                disconnects=current.disconnects,
+            )
+        self._bytes_callbacks.publish(response)

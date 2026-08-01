@@ -1,9 +1,9 @@
 """Cancellable pyserial byte transport with a bounded write queue."""
 
+from collections import deque
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
-from queue import Empty, Full, Queue
 from threading import Event, RLock, Thread
 from typing import Protocol
 
@@ -22,6 +22,7 @@ from zeroarm_desktop.transport.base import (
     LinkStateEvent,
     Subscription,
     TransportStatistics,
+    WritePriority,
 )
 
 
@@ -79,7 +80,8 @@ class SerialTransport:
         self._serial: SerialLike | None = None
         self._state = LinkState.CLOSED
         self._statistics = TransportStatistics()
-        self._queue: Queue[bytes] = Queue(maxsize=settings.queue_capacity)
+        self._queue: deque[bytes] = deque()
+        self._queue_lock = RLock()
         self._stop = Event()
         self._worker: Thread | None = None
         self._bytes_callbacks = CallbackRegistry()
@@ -114,6 +116,8 @@ class SerialTransport:
             self._set_state(LinkState.FAILED, open_error)
             raise open_error from error
         self._serial = port
+        with self._queue_lock:
+            self._queue.clear()
         self._stop.clear()
         self._worker = Thread(target=self._run, name="zeroarm-serial", daemon=True)
         self._worker.start()
@@ -139,17 +143,25 @@ class SerialTransport:
         self._close_port()
         self._set_state(LinkState.CLOSED)
 
-    def write(self, data: bytes) -> None:
+    def write(
+        self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL
+    ) -> None:
         if not isinstance(data, bytes):
             raise TypeError("transport data must be bytes")
+        if not isinstance(priority, WritePriority):
+            raise TypeError("priority must be WritePriority")
         with self._lock:
             if self._state is not LinkState.OPEN:
                 raise TransportDisconnected("serial transport is not open")
-        try:
-            self._queue.put_nowait(bytes(data))
-        except Full as error:
-            self._increment(queue_rejections=1)
-            raise TransportQueueFull("serial write queue is full") from error
+        with self._queue_lock:
+            if priority is WritePriority.EMERGENCY:
+                self._queue.clear()
+                self._queue.appendleft(bytes(data))
+            elif len(self._queue) >= self.settings.queue_capacity:
+                self._increment(queue_rejections=1)
+                raise TransportQueueFull("serial write queue is full")
+            else:
+                self._queue.append(bytes(data))
         self._increment(bytes_tx=len(data), writes_accepted=1)
 
     def subscribe_bytes(self, callback: Callable[[bytes], None]) -> Subscription:
@@ -178,10 +190,10 @@ class SerialTransport:
             self._close_port()
 
     def _write_pending(self) -> None:
-        try:
-            data = self._queue.get_nowait()
-        except Empty:
-            return
+        with self._queue_lock:
+            if not self._queue:
+                return
+            data = self._queue.popleft()
         port = self._serial
         if port is None:
             raise TransportDisconnected("serial port is closed")

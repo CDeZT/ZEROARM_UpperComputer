@@ -21,7 +21,13 @@ from zeroarm_desktop.protocol.v1_codec import (
     V1GripperCommand,
     WireResult,
 )
-from zeroarm_desktop.transport.base import CallbackRegistry, LinkStateEvent, Subscription, Transport
+from zeroarm_desktop.transport.base import (
+    CallbackRegistry,
+    LinkStateEvent,
+    Subscription,
+    Transport,
+    WritePriority,
+)
 
 
 class SessionState(Enum):
@@ -32,6 +38,68 @@ class SessionState(Enum):
     RECONNECT_WAIT = "reconnect_wait"
     CLOSING = "closing"
     FAULTED = "faulted"
+
+
+class ActionStatus(Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    UNKNOWN_OUTCOME = "unknown_outcome"
+    FAILED = "failed"
+
+
+class ActionRequest:
+    """Thread-safe observable result of one V1 action command."""
+
+    def __init__(self, command_name: str) -> None:
+        self.command_name = command_name
+        self._status = ActionStatus.PENDING
+        self._result: WireResult | None = None
+        self._detail = "awaiting device response"
+        self._lock = RLock()
+
+    @property
+    def status(self) -> ActionStatus:
+        with self._lock:
+            return self._status
+
+    @property
+    def done(self) -> bool:
+        return self.status is not ActionStatus.PENDING
+
+    @property
+    def result(self) -> WireResult | None:
+        with self._lock:
+            return self._result
+
+    @property
+    def raw_value(self) -> int | None:
+        result = self.result
+        return result.raw_value if result is not None else None
+
+    @property
+    def is_ok(self) -> bool:
+        result = self.result
+        return result.is_ok if result is not None else False
+
+    @property
+    def detail(self) -> str:
+        with self._lock:
+            return self._detail
+
+    def _complete(self, result: WireResult) -> None:
+        with self._lock:
+            if self._status is not ActionStatus.PENDING:
+                return
+            self._result = result
+            self._status = ActionStatus.COMPLETED
+            self._detail = f"V1 result={result.raw_value}"
+
+    def _finish(self, status: ActionStatus, detail: str) -> None:
+        with self._lock:
+            if self._status is not ActionStatus.PENDING:
+                return
+            self._status = status
+            self._detail = detail
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,19 +129,32 @@ class DeviceSession:
         *,
         poll_rate_hz: int = 20,
         actions_allowed: bool = False,
+        request_timeout_s: float = 1.0,
+        reconnect_delay_s: float = 0.5,
+        max_reconnect_attempts: int = 3,
     ) -> None:
         self._validate_poll_rate(poll_rate_hz)
+        if request_timeout_s <= 0 or reconnect_delay_s < 0:
+            raise ValueError("request timeout must be positive and reconnect delay non-negative")
+        if max_reconnect_attempts < 0:
+            raise ValueError("max reconnect attempts must be non-negative")
         self._transport = transport
         self._codec = V1CommandCodec()
         self._parser = StreamParser()
         self._poll_rate_hz = poll_rate_hz
         self._actions_allowed = actions_allowed
+        self._request_timeout_ns = int(request_timeout_s * 1_000_000_000)
+        self._reconnect_delay_s = reconnect_delay_s
+        self._max_reconnect_attempts = max_reconnect_attempts
         self._state = SessionState.DISCONNECTED
         self._identity: FirmwareIdentity | None = None
         self._snapshot: RobotSnapshot | None = None
         self._statistics = SessionStatistics()
         self._expected_command: int | None = None
+        self._expected_audit: str | None = None
+        self._request_deadline_ns: int | None = None
         self._last_result: WireResult | None = None
+        self._pending_action: ActionRequest | None = None
         self._last_gripper: GripperResponse | None = None
         self._last_bench_state: BenchState | None = None
         self._last_bench_protection: MotorProtection | None = None
@@ -83,6 +164,10 @@ class DeviceSession:
         self._snapshots = CallbackRegistry()
         self._stop_poll = Event()
         self._poll_thread: Thread | None = None
+        self._stop_lifecycle = Event()
+        self._watchdog_thread: Thread | None = None
+        self._reconnect_thread: Thread | None = None
+        self._reconnect_attempts = 0
         self._transport_subscriptions: list[Subscription] = []
         self._lock = RLock()
 
@@ -127,6 +212,9 @@ class DeviceSession:
             self._identity = None
             self._snapshot = None
             self._parser.reset()
+            self._reconnect_attempts = 0
+            self._stop_lifecycle.clear()
+        self._start_watchdog()
         self._set_state(SessionState.OPENING, "opening transport")
         self._transport_subscriptions = [
             self._transport.subscribe_bytes(self._on_bytes),
@@ -138,6 +226,8 @@ class DeviceSession:
             self._send(int(V1Command.HELLO), self._codec.hello_request(), audit="HELLO")
         except TransportError as error:
             self._set_state(SessionState.FAULTED, str(error))
+            self._stop_lifecycle.set()
+            self._stop_watchdog()
             raise
 
     def disconnect(self) -> None:
@@ -145,13 +235,22 @@ class DeviceSession:
             if self._state is SessionState.DISCONNECTED:
                 return
         self._set_state(SessionState.CLOSING, "disconnect requested")
+        self._stop_lifecycle.set()
         self._stop_poller()
+        self._stop_reconnector()
+        self._stop_watchdog()
         self._transport.close()
         for subscription in self._transport_subscriptions:
             subscription.cancel()
         self._transport_subscriptions.clear()
         with self._lock:
+            pending = self._pending_action
+            self._pending_action = None
             self._expected_command = None
+            self._expected_audit = None
+            self._request_deadline_ns = None
+        if pending is not None:
+            pending._finish(ActionStatus.UNKNOWN_OUTCOME, "session disconnected")
         self._set_state(SessionState.DISCONNECTED, "transport closed")
 
     def set_poll_rate_hz(self, value: int) -> None:
@@ -185,7 +284,7 @@ class DeviceSession:
         self._send(int(V1Command.GET_STATE), self._codec.get_state_request(), audit="GET_STATE")
         return True
 
-    def send_joint_target(self, target: object) -> WireResult:
+    def send_joint_target(self, target: object) -> ActionRequest:
         from zeroarm_desktop.domain.models import JointTarget
 
         if not self._actions_allowed:
@@ -194,56 +293,51 @@ class DeviceSession:
             raise TypeError("target must be JointTarget")
         if self.state is not SessionState.READONLY_READY:
             raise RuntimeError("Session is not ready")
-        self._last_result = None
-        self._send(
-            int(V1Command.SET_JOINT_TARGET),
+        return self._send_action_request(
+            V1Command.SET_JOINT_TARGET,
             self._codec.encode_joint_target(target),
-            audit="SET_JOINT_TARGET",
         )
-        result = self._last_result
-        if result is None:
-            raise RuntimeError("Mock action did not return a synchronous V1 result")
-        self.poll_once()
-        return result
 
-    def send_teach_start(self, joint_mask: int) -> WireResult:
-        return self._send_action_result(
+    def send_teach_start(self, joint_mask: int) -> ActionRequest:
+        return self._send_action_request(
             V1Command.TEACH_START,
             self._codec.encode_joint_mask(V1Command.TEACH_START, joint_mask),
         )
 
-    def send_teach_stop(self) -> WireResult:
-        return self._send_action_result(
+    def send_teach_stop(self) -> ActionRequest:
+        return self._send_action_request(
             V1Command.TEACH_STOP,
             self._codec.encode_empty_command(V1Command.TEACH_STOP),
         )
 
-    def send_enable(self, joint_mask: int) -> WireResult:
-        return self._send_action_result(
+    def send_enable(self, joint_mask: int) -> ActionRequest:
+        return self._send_action_request(
             V1Command.ENABLE,
             self._codec.encode_joint_mask(V1Command.ENABLE, joint_mask),
         )
 
-    def send_disable(self, joint_mask: int) -> WireResult:
-        return self._send_action_result(
+    def send_disable(self, joint_mask: int) -> ActionRequest:
+        return self._send_action_request(
             V1Command.DISABLE,
             self._codec.encode_joint_mask(V1Command.DISABLE, joint_mask),
         )
 
-    def send_stop(self) -> WireResult:
-        return self._send_action_result(
+    def send_stop(self) -> ActionRequest:
+        return self._send_action_request(
             V1Command.STOP,
             self._codec.encode_empty_command(V1Command.STOP),
+            priority=WritePriority.EMERGENCY,
+            supersede=True,
         )
 
-    def send_home(self, joint_mask: int) -> WireResult:
-        return self._send_action_result(
+    def send_home(self, joint_mask: int) -> ActionRequest:
+        return self._send_action_request(
             V1Command.HOME,
             self._codec.encode_joint_mask(V1Command.HOME, joint_mask),
         )
 
-    def send_clear_fault(self) -> WireResult:
-        return self._send_action_result(
+    def send_clear_fault(self) -> ActionRequest:
+        return self._send_action_request(
             V1Command.CLEAR_FAULT,
             self._codec.encode_empty_command(V1Command.CLEAR_FAULT),
         )
@@ -275,16 +369,47 @@ class DeviceSession:
             self._codec.encode_bench_id_command(V1BenchCommand.GET_PROTECTION, motor_id),
         )
 
-    def _send_action_result(self, command: V1Command, data: bytes) -> WireResult:
+    def _send_action_request(
+        self,
+        command: V1Command,
+        data: bytes,
+        *,
+        priority: WritePriority = WritePriority.NORMAL,
+        supersede: bool = False,
+    ) -> ActionRequest:
         if not self._actions_allowed:
             raise PermissionError("action commands are disabled for this Session")
-        self._last_result = None
-        self._send(int(command), data, audit=command.name)
-        result = self._last_result
-        if result is None:
-            raise RuntimeError("Mock action did not return a synchronous V1 result")
-        self.poll_once()
-        return result
+        if self.state is not SessionState.READONLY_READY:
+            raise RuntimeError("Session is not ready")
+        request = ActionRequest(command.name)
+        superseded_request: ActionRequest | None = None
+        with self._lock:
+            if self._pending_action is not None:
+                if not supersede:
+                    raise RuntimeError("another action request is already pending")
+                superseded_request = self._pending_action
+            self._pending_action = request
+            self._last_result = None
+        if superseded_request is not None:
+            superseded_request._finish(
+                ActionStatus.UNKNOWN_OUTCOME,
+                f"superseded by {command.name}; command was not retried",
+            )
+        try:
+            self._send(
+                int(command),
+                data,
+                audit=command.name,
+                priority=priority,
+                supersede=supersede,
+            )
+        except Exception as error:
+            with self._lock:
+                if self._pending_action is request:
+                    self._pending_action = None
+            request._finish(ActionStatus.FAILED, str(error))
+            raise
+        return request
 
     def _send_readonly_gripper(self, command: V1GripperCommand, data: bytes) -> GripperResponse:
         if self.state is not SessionState.READONLY_READY:
@@ -346,19 +471,45 @@ class DeviceSession:
     def subscribe_events(self, callback: Callable[[SessionEvent], None]) -> Subscription:
         return self._events.subscribe(callback)
 
-    def _send(self, command: int, data: bytes, *, audit: str | None = None) -> None:
+    def _send(
+        self,
+        command: int,
+        data: bytes,
+        *,
+        audit: str | None = None,
+        priority: WritePriority = WritePriority.NORMAL,
+        supersede: bool = False,
+    ) -> None:
+        superseded_audit: str | None = None
         with self._lock:
-            if self._expected_command is not None:
+            if supersede and self._expected_command is not None:
+                superseded_audit = self._expected_audit or "request"
+                self._expected_command = None
+                self._expected_audit = None
+                self._request_deadline_ns = None
+            elif self._expected_command is not None:
                 raise RuntimeError("V1 allows at most one request in flight")
             self._expected_command = command
+            self._expected_audit = audit or f"0x{command:02X}"
+            self._request_deadline_ns = monotonic_ns() + self._request_timeout_ns
             if audit is not None:
                 self._command_audit.append(audit)
         self._increment(requests_sent=1)
+        if superseded_audit is not None:
+            self._events.publish(
+                SessionEvent(
+                    "request_superseded",
+                    self.state,
+                    f"{superseded_audit} superseded by {audit or command}; outcome unknown",
+                )
+            )
         try:
-            self._transport.write(data)
+            self._transport.write(data, priority=priority)
         except Exception:
             with self._lock:
                 self._expected_command = None
+                self._expected_audit = None
+                self._request_deadline_ns = None
             raise
 
     def _on_bytes(self, chunk: bytes) -> None:
@@ -372,6 +523,8 @@ class DeviceSession:
                 self._increment(unexpected_frames=1)
                 return
             self._expected_command = None
+            self._expected_audit = None
+            self._request_deadline_ns = None
         self._increment(responses_received=1)
         try:
             if expected == int(V1Command.HELLO):
@@ -403,6 +556,8 @@ class DeviceSession:
                 self._increment(snapshots_published=1)
                 self._snapshots.publish(snapshot)
                 if first_snapshot:
+                    with self._lock:
+                        self._reconnect_attempts = 0
                     self._set_state(SessionState.READONLY_READY, "V1 read-only handshake complete")
                     self._start_poller()
                 return
@@ -416,7 +571,14 @@ class DeviceSession:
                 int(V1Command.HOME),
                 int(V1Command.CLEAR_FAULT),
             }:
-                self._last_result = self._codec.decode_result(frame)
+                result = self._codec.decode_result(frame)
+                with self._lock:
+                    self._last_result = result
+                    request = self._pending_action
+                    self._pending_action = None
+                if request is not None:
+                    request._complete(result)
+                self.poll_once()
                 return
             if expected in {int(V1GripperCommand.PING), int(V1GripperCommand.READ)}:
                 self._last_gripper = self._codec.decode_gripper_response(frame)
@@ -433,9 +595,125 @@ class DeviceSession:
     def _on_link_state(self, event: LinkStateEvent) -> None:
         if event.current.value == "failed":
             self._stop_poller()
-            self._set_state(
-                SessionState.RECONNECT_WAIT, "transport failed; read-only reconnect required"
+            self._schedule_reconnect("transport failed")
+
+    def _start_watchdog(self) -> None:
+        with self._lock:
+            if self._watchdog_thread is not None:
+                return
+            thread = Thread(target=self._watchdog_loop, name="zeroarm-watchdog", daemon=True)
+            self._watchdog_thread = thread
+        thread.start()
+
+    def _stop_watchdog(self) -> None:
+        thread = self._watchdog_thread
+        if thread is not None and thread is not current_thread() and thread.ident is not None:
+            thread.join(1.0)
+        self._watchdog_thread = None
+
+    def _watchdog_loop(self) -> None:
+        while not self._stop_lifecycle.wait(0.005):
+            with self._lock:
+                deadline = self._request_deadline_ns
+            if deadline is not None and monotonic_ns() >= deadline:
+                self._handle_request_timeout()
+
+    def _handle_request_timeout(self) -> None:
+        with self._lock:
+            deadline = self._request_deadline_ns
+            if deadline is None or monotonic_ns() < deadline:
+                return
+            command = self._expected_command
+            audit = self._expected_audit or "request"
+            state = self._state
+            request = self._pending_action
+            if request is not None and command != int(V1Command.GET_STATE):
+                self._pending_action = None
+            self._expected_command = None
+            self._expected_audit = None
+            self._request_deadline_ns = None
+        self._increment(request_timeouts=1)
+        self._events.publish(
+            SessionEvent("request_timeout", state, f"{audit} timed out; outcome unknown")
+        )
+        if request is not None and command != int(V1Command.GET_STATE):
+            request._finish(ActionStatus.UNKNOWN_OUTCOME, f"{audit} timed out; not retried")
+        if state is SessionState.HANDSHAKING:
+            self._schedule_reconnect(f"handshake timeout ({audit})")
+        elif command is not None and command != int(V1Command.GET_STATE):
+            self._events.publish(
+                SessionEvent("unknown_outcome", state, f"{audit} was not retried")
             )
+
+    def _schedule_reconnect(self, reason: str) -> None:
+        with self._lock:
+            if self._stop_lifecycle.is_set() or self._state in {
+                SessionState.CLOSING,
+                SessionState.DISCONNECTED,
+            }:
+                return
+            if self._reconnect_thread is not None:
+                return
+            if self._reconnect_attempts >= self._max_reconnect_attempts:
+                exhausted = True
+            else:
+                exhausted = False
+                self._reconnect_attempts += 1
+                attempt = self._reconnect_attempts
+                thread = Thread(
+                    target=self._reconnect_once,
+                    args=(attempt,),
+                    name="zeroarm-reconnect",
+                    daemon=True,
+                )
+                self._reconnect_thread = thread
+        if exhausted:
+            self._set_state(SessionState.FAULTED, f"{reason}; reconnect attempts exhausted")
+            return
+        self._set_state(
+            SessionState.RECONNECT_WAIT,
+            f"{reason}; reconnect {attempt}/{self._max_reconnect_attempts}",
+        )
+        thread.start()
+
+    def _reconnect_once(self, attempt: int) -> None:
+        retry_reason: str | None = None
+        try:
+            if self._stop_lifecycle.wait(self._reconnect_delay_s):
+                return
+            self._stop_poller()
+            self._transport.close()
+            with self._lock:
+                pending = self._pending_action
+                self._pending_action = None
+                self._identity = None
+                self._snapshot = None
+                self._parser.reset()
+                self._expected_command = None
+                self._expected_audit = None
+                self._request_deadline_ns = None
+            if pending is not None:
+                pending._finish(
+                    ActionStatus.UNKNOWN_OUTCOME,
+                    f"reconnect {attempt}; prior command not retried",
+                )
+            self._transport.open()
+            self._set_state(SessionState.HANDSHAKING, f"reconnect {attempt}; sending HELLO")
+            self._send(int(V1Command.HELLO), self._codec.hello_request(), audit="HELLO")
+        except TransportError as error:
+            retry_reason = f"reconnect {attempt} failed: {error}"
+        finally:
+            with self._lock:
+                if self._reconnect_thread is current_thread():
+                    self._reconnect_thread = None
+        if retry_reason is not None:
+            self._schedule_reconnect(retry_reason)
+
+    def _stop_reconnector(self) -> None:
+        thread = self._reconnect_thread
+        if thread is not None and thread is not current_thread() and thread.ident is not None:
+            thread.join(1.0)
+        self._reconnect_thread = None
 
     def _start_poller(self) -> None:
         self._stop_poll.clear()
@@ -445,7 +723,7 @@ class DeviceSession:
     def _stop_poller(self) -> None:
         self._stop_poll.set()
         thread = self._poll_thread
-        if thread is not None and thread is not current_thread():
+        if thread is not None and thread is not current_thread() and thread.ident is not None:
             thread.join(1.0)
         self._poll_thread = None
 
@@ -467,6 +745,7 @@ class DeviceSession:
         *,
         requests_sent: int = 0,
         responses_received: int = 0,
+        request_timeouts: int = 0,
         unexpected_frames: int = 0,
         poll_sent: int = 0,
         poll_coalesced: int = 0,
@@ -477,7 +756,7 @@ class DeviceSession:
             self._statistics = SessionStatistics(
                 requests_sent=current.requests_sent + requests_sent,
                 responses_received=current.responses_received + responses_received,
-                request_timeouts=current.request_timeouts,
+                request_timeouts=current.request_timeouts + request_timeouts,
                 unexpected_frames=current.unexpected_frames + unexpected_frames,
                 poll_sent=current.poll_sent + poll_sent,
                 poll_coalesced=current.poll_coalesced + poll_coalesced,

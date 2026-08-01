@@ -8,7 +8,7 @@ from time import monotonic
 import pytest
 
 from zeroarm_desktop.domain.errors import TransportOpenError, TransportPermissionError
-from zeroarm_desktop.transport.base import LinkState
+from zeroarm_desktop.transport.base import LinkState, WritePriority
 from zeroarm_desktop.transport.discovery import discover_serial_ports
 from zeroarm_desktop.transport.serial_transport import SerialSettings, SerialTransport
 
@@ -20,9 +20,12 @@ class FakeSerial:
         self.cancelled = Event()
         self.closed = False
         self.partial_write_size: int | None = None
+        self.read_gate = Event()
+        self.read_gate.set()
 
     def read(self, size: int) -> bytes:
         del size
+        self.read_gate.wait(1.0)
         if self.cancelled.wait(0.005):
             return b""
         try:
@@ -86,6 +89,22 @@ def test_serial_transport_completes_partial_writes() -> None:
     transport.write(b"abcdefg")
     _wait_until(lambda: fake.written == b"abcdefg")
     transport.close()
+
+
+def test_emergency_write_discards_queued_normal_writes() -> None:
+    fake = FakeSerial()
+    fake.read_gate.clear()
+    transport = SerialTransport(SerialSettings("COM_TEST"), serial_factory=lambda _: fake)
+    transport.open()
+    transport.write(b"old-target-1")
+    transport.write(b"old-target-2")
+    transport.write(b"stop", priority=WritePriority.EMERGENCY)
+
+    fake.read_gate.set()
+    _wait_until(lambda: fake.written == b"stop")
+    transport.close()
+
+    assert fake.written == b"stop"
 
 
 @pytest.mark.parametrize(

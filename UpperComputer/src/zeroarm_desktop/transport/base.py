@@ -17,6 +17,11 @@ class LinkState(Enum):
     FAILED = "failed"
 
 
+class WritePriority(Enum):
+    NORMAL = "normal"
+    EMERGENCY = "emergency"
+
+
 @dataclass(frozen=True, slots=True)
 class LinkStateEvent:
     previous: LinkState
@@ -60,7 +65,9 @@ class Transport(Protocol):
 
     def close(self, timeout_s: float = 2.0) -> None: ...
 
-    def write(self, data: bytes) -> None: ...
+    def write(
+        self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL
+    ) -> None: ...
 
     def subscribe_bytes(self, callback: Callable[[bytes], None]) -> Subscription: ...
 
