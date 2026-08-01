@@ -1,0 +1,4 @@
+interface:
+  display_name: "上位机架构规约"
+  short_description: "上位机分层架构、模块边界与线程模型的强制规则（依赖方向/不可变状态/线程归属）"
+  default_prompt: "使用上位机架构规约审查当前分层与模块边界"

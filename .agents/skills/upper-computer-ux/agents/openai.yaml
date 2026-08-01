@@ -1,0 +1,4 @@
+interface:
+  display_name: "上位机 UX 规约"
+  short_description: "工业上位机 UI/UX 规则：信息层级、实时数据、报警、参数、连接状态、Design Token 与高 DPI"
+  default_prompt: "按上位机 UX 规约设计或审查页面"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "桌面 UI 审查"
+  short_description: "综合 Qt 设计、设计工程、工业安全与可访问性的桌面 UI 审查流程与检查清单"
+  default_prompt: "审查当前上位机页面的 UI 质量与状态完整性"

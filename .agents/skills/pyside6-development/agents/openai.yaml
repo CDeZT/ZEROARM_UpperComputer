@@ -1,0 +1,4 @@
+interface:
+  display_name: "PySide6 开发规约"
+  short_description: "PySide6 Widgets 开发规则：MVC、信号槽、QThread、QSS、布局、高 DPI 与 pytest-qt 测试"
+  default_prompt: "按 PySide6 开发规约实现或审查 GUI 代码"

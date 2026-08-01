@@ -1,0 +1,4 @@
+interface:
+  display_name: "协议契约审查"
+  short_description: "V1 串口协议契约审查：帧格式、命令编解码、60B 状态、fixture 与边界测试清单"
+  default_prompt: "按协议契约规约审查编解码与 fixture"

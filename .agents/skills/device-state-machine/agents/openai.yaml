@@ -1,0 +1,4 @@
+interface:
+  display_name: "设备状态机"
+  short_description: "连接/执行/重连/超时等设备状态机的状态矩阵、迁移规则与 UI 反馈审查"
+  default_prompt: "用设备状态机规约审查连接与动作状态流转"
