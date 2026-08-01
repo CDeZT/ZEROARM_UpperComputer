@@ -1,7 +1,8 @@
 """Manual Mock control SafetyGate, ghost, hold, release, and disconnect tests."""
 
+import pytest
 from PySide6.QtCore import QEvent
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
 from zeroarm_desktop.gui.shell import MainWindow
@@ -11,6 +12,51 @@ def _connected_operator(window: MainWindow) -> None:
     window.connection_page.connect_button.click()
     window.mode_selector.setCurrentText("Operator")
     window.navigate("manual_joint")
+
+
+def test_manual_joint_axis_dropdown_only_lists_available_axes(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    axis = window.findChild(QComboBox, "manual_axis")
+    assert axis is not None
+    assert [axis.itemText(index) for index in range(axis.count())] == ["J1", "J3", "J4", "J5"]
+
+
+def test_manual_joint_unavailable_axis_preview_is_rejected(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _connected_operator(window)
+    status = window.findChild(QLabel, "manual_joint_status")
+    assert status is not None
+    with pytest.raises(ValueError, match="不可用"):
+        window.manual_view_model.preview(1, 10_000, relative=True)
+    with pytest.raises(ValueError, match="不可用"):
+        window.manual_view_model.preview(5, 10_000, relative=True)
+
+
+def test_manual_joint_interlock_denial_is_visible(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _connected_operator(window)
+    status = window.findChild(QLabel, "manual_joint_status")
+    assert status is not None
+    preview = window.manual_view_model.preview(3, 100_000, relative=True)
+    assert not preview.decision.allowed
+    assert "j4_move_requires_j3_already_clear" in preview.decision.denials
+    assert "j4_requires_j3_clear" in preview.decision.denials
+
+
+def test_manual_joint_completion_reports_arrival(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    _connected_operator(window)
+    status = window.findChild(QLabel, "manual_joint_status")
+    assert status is not None
+    preview = window.manual_view_model.preview(0, 20_000, relative=True)
+    assert preview.decision.allowed
+    window.manual_view_model.arm()
+    window.manual_view_model.send()
+    qtbot.waitUntil(lambda: "目标到达" in status.text(), timeout=5000)
 
 
 def test_manual_joint_preview_arm_send_mock_e2e(qtbot: QtBot) -> None:

@@ -27,7 +27,10 @@ class ManualJointPage(QWidget):
         title.setObjectName("page_title")
         self.axis = QComboBox()
         self.axis.setObjectName("manual_axis")
-        self.axis.addItems([f"J{index}" for index in range(1, 7)])
+        self.axis.addItems([f"J{index + 1}" for index in view_model.available_axes])
+        self._axis_to_index = {
+            index: position for position, index in enumerate(view_model.available_axes)
+        }
         self.mode = QComboBox()
         self.mode.setObjectName("target_mode")
         self.mode.addItems(["相对", "绝对"])
@@ -85,7 +88,7 @@ class ManualJointPage(QWidget):
     def preview(self) -> None:
         self._guard(
             lambda: self.view_model.preview(
-                self.axis.currentIndex(),
+                self._axis_to_index[self.axis.currentIndex()],
                 round(math.radians(self.value.value()) * 1_000_000),
                 relative=self.mode.currentText() == "相对",
             )
@@ -101,7 +104,7 @@ class ManualJointPage(QWidget):
 
     def start_hold(self, direction: int) -> None:
         step = max(1, round(math.radians(abs(self.value.value())) * 1_000_000))
-        self.view_model.start_hold(self.axis.currentIndex(), direction, step)
+        self.view_model.start_hold(self._axis_to_index[self.axis.currentIndex()], direction, step)
 
     def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.EnabledChange and not self.isEnabled():
