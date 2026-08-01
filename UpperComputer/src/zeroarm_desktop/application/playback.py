@@ -5,7 +5,17 @@ from dataclasses import dataclass
 from enum import Enum
 from uuid import UUID, uuid4
 
+from zeroarm_desktop.domain.models import JointVector, RobotSnapshot
 from zeroarm_desktop.domain.trajectory import Trajectory, TrajectoryPoint
+
+MIN_SEND_INTERVAL_NS = 20_000_000
+"""Desktop V1 host action rate limit: at most one target per 20 ms (50 Hz)."""
+
+COMPLETION_TOLERANCE_URAD = 35_000
+"""Observed arrival tolerance (~2 deg) shared with the manual-joint page."""
+
+COMPLETION_TIMEOUT_NS = 2_000_000_000
+"""Per-point completion deadline; beyond this the outcome is UnknownOutcome."""
 
 
 class PlaybackState(Enum):
@@ -63,7 +73,7 @@ class PlaybackEngine:
             return self.progress
         latest = due - 1
         dropped = latest - self._index
-        if self._last_send_ns is not None and now - self._last_send_ns < 20_000_000:
+        if self._last_send_ns is not None and now - self._last_send_ns < MIN_SEND_INTERVAL_NS:
             return self.progress
         point = trajectory.points[latest]
         self._sender(point)
@@ -111,3 +121,63 @@ def dataclass_replace(progress: PlaybackProgress, **changes: object) -> Playback
         **changes,
     }
     return PlaybackProgress(**values)  # type: ignore[arg-type]
+
+
+@dataclass(frozen=True, slots=True)
+class PlaybackEvidence:
+    """One auditable record per target actually sent during playback."""
+
+    playback_id: UUID
+    point_index: int
+    sent_monotonic_ns: int
+    joint_urad: JointVector
+    gripper_u16: int | None
+    result_raw: int | None
+    snapshot_generation: int | None
+    outcome: str
+
+
+class PlaybackSupervisor:
+    """Observe whether a sent playback point reached its target or timed out.
+
+    Completion requires moving_mask == 0 and every axis within tolerance.
+    A fault or an expired deadline is an UnknownOutcome-style abort; the caller
+    must never automatically retry a dangerous command.
+    """
+
+    def __init__(
+        self,
+        *,
+        tolerance_urad: int = COMPLETION_TOLERANCE_URAD,
+        timeout_ns: int = COMPLETION_TIMEOUT_NS,
+    ) -> None:
+        self._tolerance_urad = tolerance_urad
+        self._timeout_ns = timeout_ns
+        self._pending: TrajectoryPoint | None = None
+        self._deadline_ns: int | None = None
+
+    def note_sent(self, point: TrajectoryPoint, now_ns: int) -> None:
+        self._pending = point
+        self._deadline_ns = now_ns + self._timeout_ns
+
+    @property
+    def pending(self) -> bool:
+        return self._pending is not None
+
+    def evaluate(self, snapshot: RobotSnapshot, now_ns: int) -> str:
+        point = self._pending
+        if point is None:
+            return "idle"
+        if snapshot.fault_flags_raw != 0:
+            return "faulted"
+        arrived = snapshot.moving_mask == 0 and all(
+            abs(actual - target) <= self._tolerance_urad
+            for actual, target in zip(snapshot.actual_joint_urad, point.joint_urad, strict=True)
+        )
+        if arrived:
+            self._pending = None
+            self._deadline_ns = None
+            return "completed"
+        if self._deadline_ns is not None and now_ns > self._deadline_ns:
+            return "unknown_outcome"
+        return "pending"

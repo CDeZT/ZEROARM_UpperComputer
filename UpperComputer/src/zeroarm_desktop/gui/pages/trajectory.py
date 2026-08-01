@@ -81,9 +81,11 @@ class TrajectoryPage(QWidget):
 
     def _validate(self) -> None:
         progress = self.view_model.playback.progress
+        reason = f" reason={progress.reason}" if progress.reason else ""
         self.status.setText(
             f"{self.view_model.validation_text()} | Playback {progress.state.value} | "
             f"sent={progress.points_sent} dropped={progress.late_points_dropped}"
+            f" evidence={len(self.view_model.evidence)}{reason}"
         )
         report = validate_trajectory(self.view_model.trajectory)
         if report.valid:

@@ -295,6 +295,7 @@ class MainWindow(QMainWindow):
         mode = AppMode.OPERATOR if text == "Operator" else AppMode.OBSERVER
         self.manual_view_model.set_mode(mode)
         self.home_view_model.set_mode(mode)
+        self.trajectory_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
 
     def _apply_idle_countdown(self, remaining_s: int) -> None:

@@ -8,11 +8,29 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R9（轨迹/Cartesian 逐点约束迁移 + 详细约束报告）
-当前/下一单元：R10 真实轨迹回放（V1 ≤50Hz 限频、无 burst、误差/超时中止）
-当前代码修改：R1～R9 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
-5787ff4、06fb8d7、395a752、R9 提交）
+最近完成：R10（真实轨迹回放：V1 ≤50Hz 限频、latest target、无 burst、逐点完成观察与证据）
+当前/下一单元：R11 真实示教（mask、状态互斥、raw 记录、停止后复核；Mock E2E）
+当前代码修改：R1～R10 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
+5787ff4、06fb8d7、395a752、873a394、R10 提交）
 ```
+
+## R10 完成记录（真实轨迹回放 V1 语义）
+
+- `application/playback.py`：`MIN_SEND_INTERVAL_NS=20ms`（Desktop 50Hz 主机限频）、
+  `PlaybackSupervisor`（逐点完成观察：moving==0 且 |actual-target|≤35_000 urad →
+  completed；故障或 2s 超时 → faulted/unknown_outcome，不自动重发）、
+  `PlaybackEvidence`（playback_id/点索引/发送时间/目标/result/快照代数/outcome）。
+- `gui/viewmodels/trajectory.py`：回放启动与每个点都走 `CommandService/SafetyGate`
+  （TRAJECTORY 家族 + 逐点 JOINT_TARGET preview/arm/execute）；回放期间暂停轮询
+  占用单在途请求槽，发送后主动 GET_STATE 推进，结束/中止后恢复轮询；证据记录
+  accepted → completed/unknown_outcome。
+- `application/device_session.py`：新增 `resume_polling()`（与 R8 的 `pause_polling()` 对称）。
+- `gui/pages/trajectory.py`：状态栏显示 evidence 数量与 abort reason。
+- `gui/shell.py`：模式切换接线 `trajectory_view_model.set_mode`。
+- 测试：纯引擎 50Hz latest-target（20ms 内多个到期点只发最新、不 burst）、
+  Supervisor completed/faulted/unknown_outcome；GUI Mock E2E 回放完整轨迹并核对证据
+  与轮询恢复；pytest 全量 250 passed / 4 skipped；ruff/mypy 通过。
+- 硬件：本轮未连接板卡、未发送动作命令；真实轨迹回放仍需单独授权。
 
 ## R9 完成记录（轨迹/Cartesian 逐点约束迁移）
 

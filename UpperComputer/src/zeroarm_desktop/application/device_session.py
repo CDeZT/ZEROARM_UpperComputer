@@ -149,6 +149,13 @@ class DeviceSession:
         """
         self._stop_poller()
 
+    def resume_polling(self) -> None:
+        """Restart the background poller if the session is still ready."""
+        with self._lock:
+            if self._state is not SessionState.READONLY_READY or self._poll_thread is not None:
+                return
+        self._start_poller()
+
     def poll_once(self) -> bool:
         with self._lock:
             if self._state is not SessionState.READONLY_READY:
