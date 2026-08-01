@@ -8,11 +8,28 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R8（Desktop 空闲回零 + 受控退出，含 GUI 测试卡死修复）
-当前/下一单元：R9 轨迹/Cartesian 逐点约束迁移（无硬件动作）
-当前代码修改：R1～R8 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
-5787ff4、06fb8d7、R8 提交）
+最近完成：R9（轨迹/Cartesian 逐点约束迁移 + 详细约束报告）
+当前/下一单元：R10 真实轨迹回放（V1 ≤50Hz 限频、无 burst、误差/超时中止）
+当前代码修改：R1～R9 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
+5787ff4、06fb8d7、395a752、R9 提交）
 ```
+
+## R9 完成记录（轨迹/Cartesian 逐点约束迁移）
+
+- `domain/trajectory.py`：`validate_trajectory` 从旧 `JointModelMapping.validate_robot_limits`
+  切换为 `HardwareProfile + InterlockPolicy + PathValidator`；每个轨迹点执行 profile
+  范围/不可用轴/互锁目标校验，相邻点执行过渡校验，并保留时间单调、速度、gripper 范围检查。
+  新增 `require_partial_profile_points`（J2/J6 非零即拒绝）与
+  `PARTIAL_PROFILE_UNAVAILABLE_AXES`，明确 partial profile 轨迹格式。
+- `domain/hardware_profile.py`：`PathValidator` 升级——每个点都做互锁目标校验（此前只做
+  相邻过渡），新增 `PathIssue`（point_index/code/joint_index/detail），`PathValidation`
+  保留 `errors`/`reasons()` 兼容接口；detail 包含具体角度与阈值。
+- `domain/recipe.py`：`expand_recipe_to_points` 默认位姿 J2 对齐 partial profile（置 0）。
+- GUI：轨迹页新增 `trajectory_constraint_report` 详细约束报告（点/关节/阈值），
+  状态栏验证文本显示前 4 项带位置的问题。
+- 验证：危险中间点（终点合法仍拒绝）、降 J3 未清障、J2/J6 非零、J1 continuous
+  大值、单点互锁违规、detail 报告均有测试；ruff/mypy 通过；pytest 全量
+  247 passed / 4 skipped。
 
 ## R8 完成记录（自动回零与受控退出）
 

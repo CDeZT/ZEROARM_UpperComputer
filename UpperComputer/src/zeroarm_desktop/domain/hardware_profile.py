@@ -155,13 +155,68 @@ class InterlockPolicy:
         return tuple(violations)
 
 
+def _fmt_urad(value: int) -> str:
+    return f"{value / URAD_PER_DEGREE:.1f}°"
+
+
+def _interlock_joint_index(code: str) -> int | None:
+    if code.startswith("j4") or code == "lower_j3_requires_j4_centered":
+        return 3
+    if code.startswith("j5") or code.startswith("lower_j3_requires_j5"):
+        return 4
+    if code.startswith("lower_j3"):
+        return 2
+    return None
+
+
+def _interlock_detail(
+    code: str,
+    actual_urad: JointVector,
+    target_urad: JointVector,
+) -> str:
+    j3 = target_urad[2]
+    j4 = target_urad[3]
+    j5 = target_urad[4]
+    if code in {"j4_requires_j3_clear", "j4_move_requires_j3_already_clear"}:
+        return (
+            f"J4={_fmt_urad(j4)} 需要 J3>15° (J3={_fmt_urad(actual_urad[2])})"
+            if code.endswith("already_clear")
+            else f"J4={_fmt_urad(j4)} 需要 J3>15° (J3={_fmt_urad(j3)})"
+        )
+    if code in {"j5_midrange_requires_j3", "j5_midrange_requires_j3_already_clear"}:
+        j3_value = actual_urad[2] if code.endswith("already_clear") else j3
+        return f"J5={_fmt_urad(j5)} 需要 J3>15° (J3={_fmt_urad(j3_value)})"
+    if code in {"j5_extended_requires_j3", "j5_extended_requires_j3_already_clear"}:
+        j3_value = actual_urad[2] if code.endswith("already_clear") else j3
+        return f"J5={_fmt_urad(j5)} 需要 J3>45° (J3={_fmt_urad(j3_value)})"
+    if code == "lower_j3_requires_j4_centered":
+        return f"降 J3 到 {_fmt_urad(j3)} 前 J4 必须回 0° (J4={_fmt_urad(actual_urad[3])})"
+    if code == "lower_j3_requires_j5_midrange":
+        return f"降 J3 到 {_fmt_urad(j3)} 前 J5 必须 ≤45° (J5={_fmt_urad(actual_urad[4])})"
+    if code == "lower_j3_requires_j5_extended":
+        return f"降 J3 到 {_fmt_urad(j3)} 前 J5 必须 ≤60° (J5={_fmt_urad(actual_urad[4])})"
+    return ""
+
+
+@dataclass(frozen=True, slots=True)
+class PathIssue:
+    point_index: int
+    code: str
+    joint_index: int | None = None
+    detail: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class PathValidation:
     valid: bool
-    errors: tuple[tuple[int, str], ...]
+    issues: tuple[PathIssue, ...]
+
+    @property
+    def errors(self) -> tuple[tuple[int, str], ...]:
+        return tuple((issue.point_index, issue.code) for issue in self.issues)
 
     def reasons(self) -> tuple[str, ...]:
-        return tuple(reason for _, reason in self.errors)
+        return tuple(issue.code for issue in self.issues)
 
 
 class PathValidator:
@@ -186,18 +241,61 @@ class PathValidator:
     def validate_path(self, points: Sequence[JointVector]) -> PathValidation:
         if not points:
             return PathValidation(True, ())
-        errors: list[tuple[int, str]] = []
+        issues: list[PathIssue] = []
         for index, point in enumerate(points):
             if len(point) != 6:
-                errors.append((index, "point_must_have_six_axes"))
+                issues.append(PathIssue(index, "point_must_have_six_axes"))
                 continue
-            for reason in self.profile.target_violations(point):
-                errors.append((index, reason))
+            issues.extend(self._point_issues(index, point))
             if index > 0:
                 previous = points[index - 1]
-                for reason in self.policy.transition_violations(previous, point):
-                    errors.append((index, reason))
-        return PathValidation(not errors, tuple(errors))
+                for code in self.policy.transition_violations(previous, point):
+                    issues.append(
+                        PathIssue(
+                            index,
+                            code,
+                            _interlock_joint_index(code),
+                            _interlock_detail(code, previous, point),
+                        )
+                    )
+        return PathValidation(not issues, tuple(issues))
+
+    def _point_issues(self, index: int, point: JointVector) -> list[PathIssue]:
+        issues: list[PathIssue] = []
+        for axis, (capability, value) in enumerate(
+            zip(self.profile.capabilities, point, strict=True)
+        ):
+            if not capability.available:
+                if value != 0:
+                    issues.append(
+                        PathIssue(
+                            index,
+                            "unavailable_axis",
+                            axis,
+                            f"J{axis + 1} 不可用但目标非零 ({_fmt_urad(value)})",
+                        )
+                    )
+            elif not capability.is_within_range(value):
+                issues.append(
+                    PathIssue(
+                        index,
+                        "joint_limit",
+                        axis,
+                        f"J{axis + 1}={_fmt_urad(value)}, "
+                        f"范围 [{_fmt_urad(capability.min_urad)}, "
+                        f"{_fmt_urad(capability.max_urad)}]",
+                    )
+                )
+        for code in self.policy.target_violations(point):
+            issues.append(
+                PathIssue(
+                    index,
+                    code,
+                    _interlock_joint_index(code),
+                    _interlock_detail(code, point, point),
+                )
+            )
+        return issues
 
 
 @dataclass(frozen=True, slots=True)

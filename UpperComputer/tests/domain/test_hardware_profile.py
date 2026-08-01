@@ -156,6 +156,18 @@ def test_path_validator__rejects_unavailable_axis_and_bad_points() -> None:
     assert validator.validate_path(()).valid
 
 
+def test_path_validator__rejects_single_point_interlock_violation() -> None:
+    validator = PathValidator()
+    j4_without_clearance = (0, 0, 10 * DEG, 20 * DEG, 0, 0)
+    result = validator.validate_path((j4_without_clearance,))
+    assert not result.valid
+    assert result.reasons() == ("j4_requires_j3_clear",)
+    issue = result.issues[0]
+    assert issue.point_index == 0
+    assert issue.joint_index == 3
+    assert issue.detail is not None and "J4" in issue.detail and "15°" in issue.detail
+
+
 def test_readiness__normal_and_fault_states() -> None:
     profile = HardwareProfile.default()
     ready = evaluate_readiness(_snapshot(), profile)

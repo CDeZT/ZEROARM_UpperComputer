@@ -117,7 +117,7 @@ def expand_recipe_to_points(
         raise ValueError("recipe validation failed: " + ",".join(issue.code for issue in issues))
     points: list[TrajectoryPoint] = []
     time_ns = 0
-    last_joints = (0, 1_570_770, 0, 0, 0, 0)
+    last_joints = (0, 0, 0, 0, 0, 0)
     for step in recipe.steps:
         if step.kind == "wait_ms":
             assert step.wait_ms is not None

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from zeroarm_desktop.domain.trajectory import Trajectory
+from zeroarm_desktop.domain.trajectory import Trajectory, validate_trajectory
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 
 
@@ -33,6 +33,9 @@ class TrajectoryPage(QWidget):
         self.plot.setObjectName("trajectory_plot")
         self.status = QLabel()
         self.status.setObjectName("trajectory_status")
+        self.constraint_report = QLabel()
+        self.constraint_report.setObjectName("trajectory_constraint_report")
+        self.constraint_report.setWordWrap(True)
         buttons = QHBoxLayout()
         for name, text, operation in (
             ("trajectory_validate_button", "验证", self._validate),
@@ -56,6 +59,7 @@ class TrajectoryPage(QWidget):
         layout.addWidget(self.table, 1)
         layout.addWidget(self.plot, 1)
         layout.addWidget(self.status)
+        layout.addWidget(self.constraint_report)
         view_model.changed.connect(self.apply_trajectory)
         self.apply_trajectory(view_model.trajectory)
 
@@ -81,6 +85,17 @@ class TrajectoryPage(QWidget):
             f"{self.view_model.validation_text()} | Playback {progress.state.value} | "
             f"sent={progress.points_sent} dropped={progress.late_points_dropped}"
         )
+        report = validate_trajectory(self.view_model.trajectory)
+        if report.valid:
+            self.constraint_report.setText(f"逐点约束: 通过 ({report.point_count} 点)")
+            return
+        lines = [f"逐点约束: 拒绝 {len(report.issues)} 项"]
+        for issue in report.issues[:8]:
+            location = f"点{issue.point_index}" if issue.point_index is not None else "全局"
+            joint = f" J{issue.joint_index + 1}" if issue.joint_index is not None else ""
+            detail = f" | {issue.detail}" if issue.detail else ""
+            lines.append(f"- {location}{joint} {issue.code}{detail}")
+        self.constraint_report.setText("\n".join(lines))
 
     def _playback_start(self) -> None:
         try:

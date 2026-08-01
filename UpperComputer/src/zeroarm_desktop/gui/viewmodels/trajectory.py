@@ -65,7 +65,12 @@ class TrajectoryViewModel(QObject):
         report = validate_trajectory(self.trajectory)
         if report.valid:
             return f"有效 | {report.point_count}点 | {report.duration_ns / 1e9:.3f}s"
-        return "拒绝: " + ", ".join(issue.code for issue in report.issues)
+        details = []
+        for issue in report.issues[:4]:
+            location = f"点{issue.point_index}" if issue.point_index is not None else "全局"
+            joint = f" J{issue.joint_index + 1}" if issue.joint_index is not None else ""
+            details.append(f"{location}{joint} {issue.code}")
+        return "拒绝: " + ", ".join(details)
 
     def start_playback(self) -> None:
         session = getattr(self._session_provider, "session", None)

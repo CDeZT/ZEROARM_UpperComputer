@@ -2,13 +2,20 @@
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
+from zeroarm_desktop.domain.hardware_profile import (
+    HardwareProfile,
+    InterlockPolicy,
+    PathValidator,
+)
 from zeroarm_desktop.domain.models import JointVector
-from zeroarm_desktop.model3d.joint_mapping import JointModelMapping
 
 type JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+
+PARTIAL_PROFILE_UNAVAILABLE_AXES = (1, 5)
+"""J2 and J6 must stay zero under the zeroarm_g474_v1_partial profile."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +39,7 @@ class ValidationIssue:
     code: str
     point_index: int | None = None
     joint_index: int | None = None
+    detail: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,18 +53,23 @@ class ValidationReport:
 def validate_trajectory(
     trajectory: Trajectory,
     *,
+    profile: HardwareProfile | None = None,
+    policy: InterlockPolicy | None = None,
     max_velocity_urad_s: int = 523_590,
 ) -> ValidationReport:
     issues: list[ValidationIssue] = []
     if trajectory.schema_version != 1:
         issues.append(ValidationIssue("schema_unsupported"))
-    mapping = JointModelMapping()
+    validator = PathValidator(profile, policy)
+    path = validator.validate_path([point.joint_urad for point in trajectory.points])
+    issues.extend(
+        ValidationIssue(issue.code, issue.point_index, issue.joint_index, issue.detail)
+        for issue in path.issues
+    )
     previous: TrajectoryPoint | None = None
     for point_index, point in enumerate(trajectory.points):
         if point.time_ns < 0 or (previous is not None and point.time_ns <= previous.time_ns):
             issues.append(ValidationIssue("time_not_strictly_increasing", point_index))
-        for joint_index in mapping.validate_robot_limits(point.joint_urad):
-            issues.append(ValidationIssue("joint_limit", point_index, joint_index))
         if point.gripper_u16 is not None and not 0 <= point.gripper_u16 <= 0xFFFF:
             issues.append(ValidationIssue("gripper_range", point_index))
         if previous is not None and point.time_ns > previous.time_ns:
@@ -69,6 +82,21 @@ def validate_trajectory(
         previous = point
     duration = trajectory.points[-1].time_ns if trajectory.points else 0
     return ValidationReport(not issues, tuple(issues), len(trajectory.points), duration)
+
+
+def require_partial_profile_points(
+    points: Sequence[TrajectoryPoint],
+) -> tuple[TrajectoryPoint, ...]:
+    """Reject raw points carrying motion on unavailable partial-profile axes.
+
+    The current profile owns no J2/J6 feedback or limit switches, so any
+    non-zero J2/J6 value is a format error rather than a normalizable value.
+    """
+    for index, point in enumerate(points):
+        for axis in PARTIAL_PROFILE_UNAVAILABLE_AXES:
+            if point.joint_urad[axis] != 0:
+                raise ValueError(f"partial profile rejects non-zero J{axis + 1} at point {index}")
+    return tuple(points)
 
 
 def resample_linear(trajectory: Trajectory, period_ns: int) -> Trajectory:
