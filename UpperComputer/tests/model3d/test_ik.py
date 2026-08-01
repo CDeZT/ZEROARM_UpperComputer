@@ -14,7 +14,7 @@ URDF = (
 
 def test_ik_roundtrip_known_pose() -> None:
     fk = UrdfForwardKinematics(URDF)
-    joints = (0, 3_141_539, -1_570_770, 0, 1_570_770, 0)
+    joints = (0, 3_141_539, 523_590, 0, 1_570_770, 0)
     result = NumericalIkSolver(fk).solve(fk.forward(joints).end_effector, joints)
     assert result.solutions
     assert result.solutions[0].position_error_m <= 0.0002
@@ -23,13 +23,12 @@ def test_ik_roundtrip_known_pose() -> None:
 
 def test_ik_reports_outside_workspace() -> None:
     fk = UrdfForwardKinematics(URDF)
-    target = [
-        list(row) for row in fk.forward((0, 3_141_539, -1_570_770, 0, 1_570_770, 0)).end_effector
-    ]
+    joints = (0, 3_141_539, 523_590, 0, 1_570_770, 0)
+    target = [list(row) for row in fk.forward(joints).end_effector]
     target[0][3] = 10
     result = NumericalIkSolver(fk).solve(
         cast(Matrix4, tuple(tuple(row) for row in target)),
-        (0, 3_141_539, -1_570_770, 0, 1_570_770, 0),
+        joints,
     )
     assert not result.solutions
     assert result.reason == "invalid_or_outside_workspace"

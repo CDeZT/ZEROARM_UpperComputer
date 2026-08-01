@@ -60,7 +60,7 @@ class DatasetPage(QWidget):
     @staticmethod
     def _demo_episode() -> Episode:
         observation = Observation(
-            (0, 1_570_770, 0, 0, 0, 0),
+            (0, 0, 0, 0, 0, 0),
             1,
             0,
             100,
@@ -68,7 +68,7 @@ class DatasetPage(QWidget):
             None,
             None,
         )
-        action = Action("set_joint_target", (10_000, 1_570_770, 0, 0, 0, 0), 0, "mock")
+        action = Action("set_joint_target", (10_000, 0, 0, 0, 0, 0), 0, "mock")
         result = StepResult(True, 0, True)
         return Episode(
             1,

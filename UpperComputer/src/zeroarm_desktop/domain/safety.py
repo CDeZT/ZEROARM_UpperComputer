@@ -7,8 +7,12 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 from zeroarm_desktop.application.device_session import SessionState
+from zeroarm_desktop.domain.hardware_profile import (
+    HardwareProfile,
+    InterlockPolicy,
+    PathValidator,
+)
 from zeroarm_desktop.domain.models import JointTarget, RobotSnapshot
-from zeroarm_desktop.model3d.joint_mapping import JointModelMapping
 
 
 class AppMode(Enum):
@@ -82,8 +86,15 @@ class ArmContext:
 class SafetyGate:
     """Evaluate an action intent without I/O, UI, or mutable global state."""
 
-    def __init__(self, mapping: JointModelMapping | None = None) -> None:
-        self.mapping = mapping or JointModelMapping()
+    def __init__(
+        self,
+        profile: HardwareProfile | None = None,
+        policy: InterlockPolicy | None = None,
+        path_validator: PathValidator | None = None,
+    ) -> None:
+        self.profile = profile or HardwareProfile.default()
+        self.policy = policy or InterlockPolicy()
+        self.path_validator = path_validator or PathValidator(self.profile, self.policy)
 
     def evaluate(self, intent: CommandIntent, context: SafetyContext) -> SafetyDecision:
         if intent.family is CommandFamily.READONLY:
@@ -120,8 +131,10 @@ class SafetyGate:
             if target is None:
                 denials.append("target_missing")
             elif snapshot is not None:
-                if self.mapping.validate_robot_limits(target.joint_urad):
-                    denials.append("joint_limit")
+                denials.extend(self.profile.target_violations(target.joint_urad))
+                denials.extend(
+                    self.policy.transition_violations(snapshot.actual_joint_urad, target.joint_urad)
+                )
                 if (
                     max(
                         abs(target_value - actual_value)

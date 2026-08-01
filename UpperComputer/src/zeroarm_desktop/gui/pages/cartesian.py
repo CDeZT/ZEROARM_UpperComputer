@@ -45,7 +45,7 @@ class CartesianPage(QWidget):
         seed = (
             session.latest_snapshot.actual_joint_urad
             if isinstance(session, DeviceSession) and session.latest_snapshot
-            else (0, 3_141_539, -1_570_770, 0, 1_570_770, 0)
+            else (0, 3_141_539, 523_590, 0, 1_570_770, 0)
         )
         matrix = [list(row) for row in identity_matrix()]
         for index, field in enumerate(self.inputs):

@@ -21,7 +21,7 @@ from zeroarm_desktop.domain.safety import (
 
 
 def _snapshot(generation: int = 1, received_ns: int = 100) -> RobotSnapshot:
-    actual = (0, 1_570_770, 0, 0, 0, 0)
+    actual = (0, 0, 0, 0, 0, 0)
     return RobotSnapshot(
         generation,
         received_ns,
@@ -60,8 +60,8 @@ def _context() -> SafetyContext:
 def _intent(target: tuple[int, int, int, int, int, int] | None = None) -> CommandIntent:
     return CommandIntent(
         CommandFamily.JOINT_TARGET,
-        0x3F,
-        JointTarget(target or (10_000, 1_570_770, 0, 0, 0, 0), 100, 0),
+        0x1D,
+        JointTarget(target or (10_000, 0, 0, 0, 0, 0), 100, 0),
     )
 
 
@@ -108,16 +108,20 @@ def test_stale_fault_gravity_and_target_validation_denials() -> None:
 
 @given(delta=st.integers(min_value=-175_000, max_value=175_000))
 def test_joint_target_exact_step_boundary_is_allowed(delta: int) -> None:
-    actual = _snapshot().actual_joint_urad
+    actual = (0, 0, 523_590, 0, 0, 0)
+    snapshot = replace(_snapshot(), actual_joint_urad=actual, target_joint_urad=actual)
+    context = replace(_context(), snapshot=snapshot)
     target = (*actual[:3], actual[3] + delta, *actual[4:])
-    assert SafetyGate().evaluate(_intent(target), _context()).allowed
+    assert SafetyGate().evaluate(_intent(target), context).allowed
 
 
-def test_joint_limit_step_and_duration_are_rejected() -> None:
+def test_joint_limit_step_duration_and_unavailable_axis_are_rejected() -> None:
     gate = SafetyGate()
-    decision = gate.evaluate(_intent((-1, 1_570_770, 0, 0, 0, 0)), _context())
+    decision = gate.evaluate(_intent((0, 0, -1, 0, 0, 0)), _context())
     assert "joint_limit" in decision.denials
-    decision = gate.evaluate(_intent((200_000, 1_570_770, 0, 0, 0, 0)), _context())
+    decision = gate.evaluate(_intent((0, 0, 0, 0, 0, 1_570_770)), _context())
+    assert "unavailable_axis" in decision.denials
+    decision = gate.evaluate(_intent((200_000, 0, 0, 0, 0, 0)), _context())
     assert "step_limit" in decision.denials
     target = _intent().target
     assert target is not None

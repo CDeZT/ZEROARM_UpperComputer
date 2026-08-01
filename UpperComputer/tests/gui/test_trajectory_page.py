@@ -16,7 +16,7 @@ def test_trajectory_page_edits_and_updates_ghost(qtbot: QtBot) -> None:
     table = window.findChild(QTableWidget, "trajectory_table")
     assert table is not None and table.rowCount() == 3
     table.setCurrentCell(1, 0)
-    assert window.workspace_view_model._ghost == (87_266, 1_570_770, 0, 0, 0, 0)
+    assert window.workspace_view_model._ghost == (87_266, 0, 0, 0, 0, 0)
     resample = window.findChild(QPushButton, "trajectory_resample_button")
     assert resample is not None
     resample.click()

@@ -26,9 +26,9 @@ class TrajectoryViewModel(QObject):
             1,
             "Demo trajectory",
             (
-                TrajectoryPoint(0, (0, 1_570_770, 0, 0, 0, 0), 0),
-                TrajectoryPoint(1_000_000_000, (87_266, 1_570_770, 0, 0, 0, 0), 0),
-                TrajectoryPoint(2_000_000_000, (0, 1_570_770, 0, 0, 0, 0), 0),
+                TrajectoryPoint(0, (0, 0, 0, 0, 0, 0), 0),
+                TrajectoryPoint(1_000_000_000, (87_266, 0, 0, 0, 0, 0), 0),
+                TrajectoryPoint(2_000_000_000, (0, 0, 0, 0, 0, 0), 0),
             ),
             "created",
             {},

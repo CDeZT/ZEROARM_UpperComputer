@@ -24,8 +24,8 @@ class MockDevice:
         self._frames = FrameCodec()
         self._faults = faults or MockFaults()
         self._response_number = 0
-        self.target_joint_urad = (0, 1_570_770, 0, 0, 0, 0)
-        self.actual_joint_urad = (0, 1_570_770, 0, 0, 0, 0)
+        self.target_joint_urad = (0, 0, 0, 0, 0, 0)
+        self.actual_joint_urad = (0, 0, 0, 0, 0, 0)
         self.run_state = 1
         self.enabled_mask = 0
         self.homed_mask = 0

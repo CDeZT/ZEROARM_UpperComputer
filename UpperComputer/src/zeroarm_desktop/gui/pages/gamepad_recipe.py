@@ -44,7 +44,7 @@ class GamepadRecipePage(QWidget):
                 RecipeStep("wait_ms", wait_ms=100),
                 RecipeStep(
                     "set_joint_target",
-                    joint_urad=(10_000, 1_570_770, 0, 0, 0, 0),
+                    joint_urad=(10_000, 0, 0, 0, 0, 0),
                     duration_ms=200,
                 ),
             ),
