@@ -12,13 +12,23 @@ from zeroarm_desktop.transport.base import (
     Subscription,
     TransportStatistics,
 )
-from zeroarm_desktop.transport.mock_device import MockDevice, MockFaults
+from zeroarm_desktop.transport.mock_device import MockDevice, MockDeviceSettings, MockFaults
 
 
 @dataclass(frozen=True, slots=True)
 class MockSettings:
     seed: int = 0
     faults: MockFaults = field(default_factory=MockFaults)
+    startup_limits_active: bool = True
+    auto_home_idle_ms: int = 20_000
+    home_fails: bool = False
+
+    def device_settings(self) -> MockDeviceSettings:
+        return MockDeviceSettings(
+            startup_limits_active=self.startup_limits_active,
+            auto_home_idle_ms=self.auto_home_idle_ms,
+            home_fails=self.home_fails,
+        )
 
 
 class MockTransport:
@@ -26,12 +36,19 @@ class MockTransport:
 
     def __init__(self, settings: MockSettings | None = None) -> None:
         self.settings = settings or MockSettings()
-        self._device = MockDevice(faults=self.settings.faults)
+        self._device = MockDevice(
+            faults=self.settings.faults, settings=self.settings.device_settings()
+        )
         self._state = LinkState.CLOSED
         self._statistics = TransportStatistics()
         self._bytes_callbacks = CallbackRegistry()
         self._state_callbacks = CallbackRegistry()
         self._lock = RLock()
+
+    @property
+    def device(self) -> MockDevice:
+        """Expose the device for deterministic fault and clock injection."""
+        return self._device
 
     @property
     def state(self) -> LinkState:

@@ -71,7 +71,7 @@ def test_mock_target_changes_following_state_samples() -> None:
     transport.subscribe_bytes(received.append)
     transport.open()
     codec = V1CommandCodec()
-    target = JointTarget((100_000, -100_000, 60_000, -60_000, 20_000, -20_000), 100, 0)
+    target = JointTarget((100_000, 0, 60_000, -60_000, 20_000, 0), 100, 0)
 
     transport.write(codec.encode_joint_target(target))
     transport.write(codec.get_state_request())
@@ -85,7 +85,8 @@ def test_mock_target_changes_following_state_samples() -> None:
         received_wall_utc=datetime.now(UTC),
     )
     assert snapshot.target_joint_urad == target.joint_urad
-    assert snapshot.actual_joint_urad == (20_000, -20_000, 20_000, -20_000, 20_000, -20_000)
+    assert snapshot.actual_joint_urad == (20_000, 0, 20_000, -20_000, 20_000, 0)
+    assert snapshot.run_state_raw == 1
 
 
 def test_mock_faults_are_deterministic_at_byte_boundary() -> None:
