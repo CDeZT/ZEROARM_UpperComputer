@@ -8,10 +8,59 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R0 文档与契约迁移
-当前/下一单元：R2 HardwareProfile 与互锁域
-当前代码修改：R1 已完成（协议合同/fixture 对齐），本单元已提交
+最近完成：R2（HardwareProfile/互锁域）、R3（Mock 语义）、R4（Serial 只读验收）、R5（GUI 状态迁移）
+当前/下一单元：R6 真实 HOME 工作流（需用户明确授权 + 实机）
+当前代码修改：R1～R5 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce）
 ```
+
+## R2 完成记录（HardwareProfile 与互锁域）
+
+- 生产文件：`src/zeroarm_desktop/domain/hardware_profile.py`（新增）：`HardwareProfile`
+  （`zeroarm_g474_v1_partial`：J1 continuous、J2/J6 Unavailable、J3 0-135°、J4 -90-90°、
+  J5 -35-135°，mask 0x1D）、`JointCapability`、`InterlockPolicy`（MCU `joint_config.c`
+  端点/过渡语义精确复刻）、`PathValidator`（逐点+相邻过渡校验）、`evaluate_readiness`
+  （运动授权/回零完整/故障分类）。
+- `domain/safety.py` 改用 profile+policy（移除对 model3d 的反向依赖）；`model3d/joint_mapping.py`
+  的 robot 范围对齐新契约；示例数据（轨迹/食谱/数据集/台架 ghost）统一 J2=0。
+- 验证：J2/J6 非零必拒绝、J1 continuous、J3/J4/J5 边界、降 J3 顺序（J4 居中/J5 收回）、
+  危险中间点拒绝；pytest 全量 207 passed（R2 提交时）。
+- 提交：`05e5921`。
+
+## R3 完成记录（Mock 语义升级）
+
+- `transport/mock_device.py` 重写：启动限位门（0x1D，FAULT_STARTUP）、有序 HOME
+  （J5→J4→J3→J1，HOMING 期间未授权）、E-stop 锁存（reset-required，仅 `simulate_reset` 解除）、
+  20 秒无帧自动回零（虚拟时钟 `advance_time_ms`，deterministic）、J2/J6 非零目标 ERR_RANGE、
+  ENABLE/DISABLE/STOP/CLEAR_FAULT 全语义、TEACH 未授权、运动期间 run_state 保持 READY
+  （moving_mask 表达，与 MCU 一致）。
+- `transport/mock.py`：`MockSettings` 扩展 + `transport.device` 暴露注入点。
+- 测试：`tests/transport/test_mock_mcu_semantics.py`（14 个语义测试）。
+- 提交：`109c5d8`。
+
+## R4 完成记录（Serial 只读板卡验收）
+
+- 工具：`tools/readonly_board_report.py`（HELLO/GET_STATE 只读 soak + 命令审计 + fixture
+  语义匹配报告）；`DeviceSession.parser_statistics` 暴露。
+- 实测（2026-08-01，COM3 ST-Link VCP，板载固件）：
+  - HELLO `ZEROARM/1.0` 成功；60 秒 soak：429 snapshots、0 CRC/长度/噪声错误、
+    0 unexpected frames；`fixture_semantics_match = V1-STATE-READY-HOMED-1D`
+    （run_state READY、fault 0、homed_mask 0x1D）——R1 黄金帧得到实机验证。
+  - 命令审计：仅 HELLO×1 + GET_STATE×430，动作命令 0。
+  - 报告：`docs/reports/readonly_board_20260801.json`。
+- 提交：`3856b82`、`3ba0495`。
+
+## R5 完成记录（连接/Dashboard/Monitor 迁移）
+
+- `gui/viewmodels/snapshot.py`：`SnapshotViewState` 增加 readiness/fault 名称/未知位/
+  Unavailable 轴/新鲜度/自动回零警告；run_state 用 V1RunState 枚举。
+- `gui/pages/dashboard.py`：profile/readiness（运动授权/回零/RESET-REQUIRED）/故障位
+  名称+未知位/新鲜度/自动回零提示；J2/J6 显示 Unavailable。
+- `gui/pages/joint_monitor.py`：Unavailable 轴行标记。
+- 测试覆盖：正常启动门（READY/授权/未回零警告）、STARTUP fault、ESTOP fault、
+  unknown run_state/fault 位、freshness。
+- 提交：`66444ce`。
+
+## 现有 0.1.0 可复用资产
 
 ## R1 完成记录（2026-08-01）
 
@@ -67,10 +116,13 @@ MCU 的 J1/J3/J4/J5 已有现场动作与自动回零测试，不再描述为“
 
 ## 当前待办
 
-1. R1：让上位机协议合同/fixture 覆盖当前 result、fault、bench 和 gripper 命令。**已完成（2026-08-01）**。
-2. R2：建立 partial HardwareProfile、Unavailable 轴和 J3/J4/J5 路径约束。
-3. R3～R5：升级 Mock、完成真实只读板测和 GUI 状态迁移。
-4. R6 以后：按 HOME、手动控制、Desktop空闲/退出回零、轨迹、示教、夹爪逐项验收。
+1. R1：协议合同/fixture 覆盖 result、fault、bench、gripper。**已完成（2026-08-01）**。
+2. R2：HardwareProfile、Unavailable 轴和 J3/J4/J5 路径约束。**已完成（2026-08-01）**。
+3. R3：Mock 当前 MCU 语义升级。**已完成（2026-08-01）**。
+4. R4：Serial 只读板卡验收。**已完成（2026-08-01，COM3 实测通过）**。
+5. R5：连接/Dashboard/Monitor GUI 状态迁移。**已完成（2026-08-01）**。
+6. R6 以后：真实 HOME、手动控制、Desktop 空闲/退出回零、轨迹、示教、夹爪逐项验收
+   （动作类需用户明确授权）。
 
 ## 保持独立的未来路线
 
