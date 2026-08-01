@@ -1,6 +1,25 @@
 """Packaged and source resource path resolution tests."""
 
-from zeroarm_desktop.infrastructure.paths import application_root, resource_root, robot_model_root
+from pathlib import Path
+
+from pytest import MonkeyPatch
+
+from zeroarm_desktop.infrastructure.paths import (
+    application_root,
+    default_data_root,
+    resource_root,
+    robot_model_root,
+)
+
+
+def test_data_root_honors_explicit_environment_override(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    expected = tmp_path / "isolated-data"
+    monkeypatch.setenv("ZEROARM_DATA_ROOT", str(expected))
+
+    assert default_data_root() == expected
+    assert expected.is_dir()
 
 
 def test_source_tree_resource_paths_resolve() -> None:

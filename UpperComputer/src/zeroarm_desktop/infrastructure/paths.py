@@ -1,5 +1,6 @@
 """Cross-platform user data and packaged resource paths."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -7,6 +8,11 @@ from platformdirs import user_data_path
 
 
 def default_data_root() -> Path:
+    override = os.environ.get("ZEROARM_DATA_ROOT")
+    if override:
+        root = Path(override).expanduser()
+        root.mkdir(parents=True, exist_ok=True)
+        return root
     return Path(user_data_path("ZeroArm Desktop", "ZeroArm", roaming=False, ensure_exists=True))
 
 
