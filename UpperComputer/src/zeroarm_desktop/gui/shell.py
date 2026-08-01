@@ -1,6 +1,7 @@
 """Navigation shell and stable global status surface."""
 
 from collections.abc import Callable
+from contextlib import suppress
 from time import monotonic, sleep
 
 from PySide6.QtCore import QCoreApplication, QEvent, Signal
@@ -28,6 +29,7 @@ from zeroarm_desktop.gui.pages.dataset import DatasetPage
 from zeroarm_desktop.gui.pages.diagnostics import DiagnosticsPage, ProtocolConsolePage
 from zeroarm_desktop.gui.pages.firmware import FirmwarePage
 from zeroarm_desktop.gui.pages.gamepad_recipe import GamepadRecipePage
+from zeroarm_desktop.gui.pages.gripper import GripperPage
 from zeroarm_desktop.gui.pages.home import HomePage
 from zeroarm_desktop.gui.pages.joint_monitor import JointMonitorPage
 from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
@@ -39,6 +41,7 @@ from zeroarm_desktop.gui.viewmodels.home import HomeViewModel
 from zeroarm_desktop.gui.viewmodels.idle_monitor import OperatorIdleHomeMonitor
 from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
+from zeroarm_desktop.gui.viewmodels.teach import TeachViewModel
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
 from zeroarm_desktop.gui.viewmodels.workspace3d import Workspace3DViewModel
 from zeroarm_desktop.infrastructure.paths import robot_model_root
@@ -132,7 +135,8 @@ class MainWindow(QMainWindow):
         self.register_page("workspace_3d", Workspace3DPage(self.workspace_view_model, asset_root))
         self.register_page("manual_joint", ManualJointPage(self.manual_view_model))
         self.register_page("trajectory", TrajectoryPage(self.trajectory_view_model))
-        self.teach_page = TeachPage(self.connection_page)
+        self.teach_view_model = TeachViewModel(self.connection_page)
+        self.teach_page = TeachPage(self.teach_view_model)
         self.register_page("teach", self.teach_page)
         self.register_page(
             "cartesian",
@@ -163,9 +167,11 @@ class MainWindow(QMainWindow):
             else self.idle_monitor.stop()
         )
         self.manual_view_model.status_changed.connect(self.idle_monitor.note_activity)
+        self.teach_view_model.status_changed.connect(self.idle_monitor.note_activity)
         self.page_changed.connect(lambda route: self.idle_monitor.note_activity())
         self.register_page("diagnostics", DiagnosticsPage(self.connection_page))
         self.register_page("protocol_console", ProtocolConsolePage(self.connection_page))
+        self.register_page("gripper", GripperPage(self.connection_page))
         self.register_page("gamepad_recipe", GamepadRecipePage())
         self.register_page("dataset", DatasetPage())
         self.register_page("firmware", FirmwarePage())
@@ -252,6 +258,7 @@ class MainWindow(QMainWindow):
             ("home", "回零向导 (Mock)"),
             ("diagnostics", "诊断"),
             ("protocol_console", "安全协议终端"),
+            ("gripper", "夹爪/台架只读"),
             ("gamepad_recipe", "手柄/Recipe"),
             ("dataset", "数据集"),
             ("firmware", "固件升级"),
@@ -296,6 +303,7 @@ class MainWindow(QMainWindow):
         self.manual_view_model.set_mode(mode)
         self.home_view_model.set_mode(mode)
         self.trajectory_view_model.set_mode(mode)
+        self.teach_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
 
     def _apply_idle_countdown(self, remaining_s: int) -> None:
@@ -324,6 +332,9 @@ class MainWindow(QMainWindow):
         self.workspace_view_model.close()
         self.manual_view_model.stop_hold("shutdown")
         self.trajectory_view_model.abort_playback("shutdown")
+        with suppress(PermissionError, RuntimeError, ValueError):
+            if self.teach_view_model.state.value == "recording":
+                self.teach_view_model.stop()
         session = self.connection_page.session
         if (
             session is not None

@@ -53,11 +53,19 @@ class ProtocolConsolePage(QWidget):
         title.setObjectName("page_title")
         self.command = QComboBox()
         self.command.setObjectName("console_command")
-        self.command.addItems(["HELLO", "GET_STATE"])
+        self.command.addItems(
+            [
+                "HELLO",
+                "GET_STATE",
+                "GRIPPER_PING",
+                "BENCH_QUERY",
+                "BENCH_GET_PROTECTION",
+            ]
+        )
         send = QPushButton("发送只读请求")
         send.setObjectName("console_send")
         send.clicked.connect(self.send)
-        self.result = QLabel("仅允许HELLO/GET_STATE | 不提供任意HEX直发")
+        self.result = QLabel("仅允许 HELLO/GET_STATE/夹爪Ping/台架Query | 不提供任意 HEX 直发")
         self.result.setObjectName("console_result")
         layout = QVBoxLayout(self)
         for widget in (title, self.command, send, self.result):
@@ -69,9 +77,31 @@ class ProtocolConsolePage(QWidget):
         if not isinstance(session, DeviceSession):
             self.result.setText("未连接")
             return
-        if self.command.currentText() == "GET_STATE":
-            session.poll_once()
-            self.result.setText("GET_STATE只读请求完成")
-        else:
-            identity = session.identity
-            self.result.setText(f"HELLO缓存身份: {identity.hello_text if identity else '--'}")
+        name = self.command.currentText()
+        try:
+            if name == "GET_STATE":
+                session.poll_once()
+                self.result.setText("GET_STATE只读请求完成")
+            elif name == "HELLO":
+                identity = session.identity
+                self.result.setText(f"HELLO缓存身份: {identity.hello_text if identity else '--'}")
+            elif name == "GRIPPER_PING":
+                response = session.send_gripper_ping(1)
+                self.result.setText(
+                    f"GRIPPER_PING result={response.raw_result} id={response.id} "
+                    f"ok={response.is_ok}"
+                )
+            elif name == "BENCH_QUERY":
+                state = session.send_bench_query(1)
+                self.result.setText(
+                    f"BENCH_QUERY motor={state.motor_id} online={state.online} "
+                    f"pos={state.position_urad}"
+                )
+            else:
+                protection = session.send_bench_get_protection(3)
+                self.result.setText(
+                    f"BENCH_GET_PROTECTION motor={protection.motor_id} "
+                    f"temp={protection.temperature_c}C cur={protection.current_ma}mA"
+                )
+        except (PermissionError, RuntimeError, ValueError, TypeError) as error:
+            self.result.setText(str(error))

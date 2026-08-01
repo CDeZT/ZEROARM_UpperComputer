@@ -8,11 +8,23 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R10（真实轨迹回放：V1 ≤50Hz 限频、latest target、无 burst、逐点完成观察与证据）
-当前/下一单元：R11 真实示教（mask、状态互斥、raw 记录、停止后复核；Mock E2E）
-当前代码修改：R1～R10 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
-5787ff4、06fb8d7、395a752、873a394、R10 提交）
+最近完成：R11～R13（真实示教 / 夹爪只读 / 台架只读诊断）
+当前/下一单元：R14 数据与性能（schema、OperationEvidence、soak、队列时延）
+当前代码修改：R1～R13 已完成
 ```
+
+## R11～R13 完成记录（示教 + 夹爪/台架只读）
+
+- R11 示教：`TeachViewModel` 走 `SafetyGate` `GRAVITY_RELEASE`（支撑确认、可用轴 mask
+  0x1D、状态互斥）；`TeachRecorder` IDLE/ARMED/RECORDING/REVIEW；TEACH_STOP 后失能复核
+  且不自动 ENABLE；raw 另存轨迹带 `parent_raw_sha256`。Mock 拒绝 J2/J6/空 mask。
+- R12 夹爪：`DeviceSession.send_gripper_ping/read` 只读（Serial 亦可用）；动作门固定
+  `gripper_not_calibrated`；GUI `夹爪/台架只读` 页。
+- R13 台架：`send_bench_query/get_protection` + 协议终端白名单；命令审计；Mock 返回
+  fixture 黄金响应；禁止任意 HEX 透传。
+- 测试：teach/gripper GUI E2E + mock 语义；ruff/mypy 通过；pytest 254 passed / 4 skipped
+  （`test_assets` 因本机 `licenses/GPL-2.0.txt` 完整性与 manifest 不一致预存失败，与本轮无关）。
+- 硬件：未连接板卡、未发送动作命令；真实示教/夹爪动作仍需单独授权。
 
 ## R10 完成记录（真实轨迹回放 V1 语义）
 
@@ -201,8 +213,12 @@ MCU 的 J1/J3/J4/J5 已有现场动作与自动回零测试，不再描述为“
 6. R6：HOME 0x1D 向导。**已完成（2026-08-01，Mock E2E）**。
 7. R7：手动关节控制（仅可用轴 + completion 观察）。**已完成（2026-08-01，Mock）**。
 8. R8：Desktop 空闲回零 + 受控退出。**已完成（2026-08-01，Mock）**。
-9. R9 以后：轨迹逐点约束、回放、示教、夹爪、台架、数据与发布（真实动作类
-   仍需单独授权）。
+9. R9：轨迹逐点约束。**已完成**。
+10. R10：真实轨迹回放语义。**已完成**。
+11. R11：真实示教。**已完成（2026-08-01，Mock E2E）**。
+12. R12：夹爪只读诊断。**已完成（2026-08-01，Mock）**。
+13. R13：台架/协议终端只读。**已完成（2026-08-01，Mock）**。
+14. R14 以后：数据/性能、打包发布刷新（真实动作类仍需单独授权）。
 
 ## 保持独立的未来路线
 

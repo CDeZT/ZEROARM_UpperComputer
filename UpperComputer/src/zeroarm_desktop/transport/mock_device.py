@@ -9,9 +9,21 @@ behavior is deterministic in tests.
 
 from dataclasses import dataclass
 
+from zeroarm_desktop.protocol.fixtures import (
+    V1_BENCH_GET_PROTECTION_RSP_MOTOR3,
+    V1_BENCH_QUERY_RSP_MOTOR1,
+    V1_GRIPPER_PING_RSP_ID1,
+    V1_GRIPPER_READ_RSP_ID1,
+)
 from zeroarm_desktop.protocol.frame_codec import FrameCodec, ProtocolFrame
 from zeroarm_desktop.protocol.stream_parser import StreamParser
-from zeroarm_desktop.protocol.v1_codec import V1Command, V1FaultFlag, V1ResultCode
+from zeroarm_desktop.protocol.v1_codec import (
+    V1BenchCommand,
+    V1Command,
+    V1FaultFlag,
+    V1GripperCommand,
+    V1ResultCode,
+)
 
 MOTION_STEP_URAD = 20_000
 AUTO_HOME_IDLE_MS_DEFAULT = 20_000
@@ -60,6 +72,7 @@ class MockDevice:
         self.enabled_mask = 0
         self.homed_mask = 0
         self.moving_mask = 0
+        self.teach_mask = 0
         self.fault_flags: int = 0
         self.estop_latched = False
         self._reset_machine()
@@ -110,6 +123,7 @@ class MockDevice:
         self.enabled_mask = 0
         self.homed_mask = 0
         self.moving_mask = 0
+        self.teach_mask = 0
         self._homing_sequence.clear()
         self._motion_authorized = False
         if self._settings.startup_limits_active:
@@ -155,21 +169,19 @@ class MockDevice:
         if frame.command == V1Command.HOME and len(frame.payload) == 1:
             return self._handle_home(frame.payload[0])
         if frame.command == V1Command.TEACH_START and len(frame.payload) == 1:
-            if self.run_state != 1 or self.fault_flags != 0:
-                return self._result(frame.command, V1ResultCode.ERR_NOT_READY)
-            self.run_state = 3
-            self._motion_authorized = False
-            self.enabled_mask &= ~frame.payload[0]
-            return self._result(frame.command, V1ResultCode.OK)
+            return self._handle_teach_start(frame.payload[0])
         if frame.command == V1Command.TEACH_STOP and not frame.payload:
-            if self.run_state != 3:
-                return self._result(frame.command, V1ResultCode.ERR_STATE)
-            self.run_state = 1
-            self._motion_authorized = True
-            self.target_joint_urad = self.actual_joint_urad
-            return self._result(frame.command, V1ResultCode.OK)
+            return self._handle_teach_stop()
         if frame.command == V1Command.CLEAR_FAULT and not frame.payload:
             return self._handle_clear_fault()
+        if frame.command == V1GripperCommand.PING and len(frame.payload) == 1:
+            return self._handle_gripper_ping(frame.payload[0])
+        if frame.command == V1GripperCommand.READ and len(frame.payload) == 3:
+            return self._handle_gripper_read(frame.payload[0])
+        if frame.command == V1BenchCommand.QUERY and len(frame.payload) == 1:
+            return self._handle_bench_query(frame.payload[0])
+        if frame.command == V1BenchCommand.GET_PROTECTION and len(frame.payload) == 1:
+            return self._handle_bench_get_protection(frame.payload[0])
         return self._result(frame.command, V1ResultCode.ERR_NOT_IMPLEMENTED)
 
     def _handle_joint_target(self, frame: ProtocolFrame) -> bytes:
@@ -220,6 +232,35 @@ class MockDevice:
         self._homing_sequence = [joint for joint in (4, 3, 2, 0) if mask & (1 << joint)]
         return self._result(V1Command.HOME, V1ResultCode.OK)
 
+    def _handle_teach_start(self, mask: int) -> bytes:
+        if mask == 0:
+            return self._result(V1Command.TEACH_START, V1ResultCode.ERR_ARGUMENT)
+        if mask & ~ALL_JOINTS_MASK:
+            return self._result(V1Command.TEACH_START, V1ResultCode.ERR_RANGE)
+        if mask & ~PROFILE_HOME_MASK:
+            return self._result(V1Command.TEACH_START, V1ResultCode.ERR_RANGE)
+        if self.estop_latched or self.fault_flags != 0:
+            return self._result(V1Command.TEACH_START, V1ResultCode.ERR_NOT_READY)
+        if self.run_state != 1 or self.moving_mask != 0:
+            return self._result(V1Command.TEACH_START, V1ResultCode.ERR_NOT_READY)
+        self.run_state = 3
+        self._motion_authorized = False
+        self.teach_mask = mask
+        self.enabled_mask &= ~mask
+        self.moving_mask = 0
+        self.target_joint_urad = self.actual_joint_urad
+        return self._result(V1Command.TEACH_START, V1ResultCode.OK)
+
+    def _handle_teach_stop(self) -> bytes:
+        if self.run_state != 3:
+            return self._result(V1Command.TEACH_STOP, V1ResultCode.ERR_STATE)
+        self.run_state = 1
+        self._motion_authorized = True
+        self.target_joint_urad = self.actual_joint_urad
+        # Keep taught axes disabled; never auto-ENABLE after TEACH_STOP.
+        self.enabled_mask &= ~self.teach_mask
+        return self._result(V1Command.TEACH_STOP, V1ResultCode.OK)
+
     def _handle_clear_fault(self) -> bytes:
         clearable = self.fault_flags & ~RESET_REQUIRED_FAULT_BITS
         if self.fault_flags == 0:
@@ -231,6 +272,29 @@ class MockDevice:
             self.run_state = 1
             self._motion_authorized = self._settings.startup_limits_active
         return self._result(V1Command.CLEAR_FAULT, V1ResultCode.OK)
+
+    def _handle_gripper_ping(self, servo_id: int) -> bytes:
+        if servo_id != 1:
+            return self._frames.encode(V1GripperCommand.PING, bytes((1, servo_id, 0)))
+        return V1_GRIPPER_PING_RSP_ID1.raw
+
+    def _handle_gripper_read(self, servo_id: int) -> bytes:
+        if servo_id != 1:
+            return self._frames.encode(V1GripperCommand.READ, bytes((1, servo_id, 0)))
+        return V1_GRIPPER_READ_RSP_ID1.raw
+
+    def _handle_bench_query(self, motor_id: int) -> bytes:
+        if motor_id != 1:
+            # Minimal offline payload: motor_id + offline + zeros.
+            payload = bytearray((motor_id, 0)) + bytearray(38)
+            return self._frames.encode(V1BenchCommand.QUERY, bytes(payload))
+        return V1_BENCH_QUERY_RSP_MOTOR1.raw
+
+    def _handle_bench_get_protection(self, motor_id: int) -> bytes:
+        if motor_id != 3:
+            payload = bytes((motor_id, 0, 100, 0x0D, 0xAC, 0x01, 0x2C))
+            return self._frames.encode(V1BenchCommand.GET_PROTECTION, payload)
+        return V1_BENCH_GET_PROTECTION_RSP_MOTOR3.raw
 
     def _maybe_start_auto_home(self) -> None:
         idle_ms = self._now_ms - self._last_activity_ms

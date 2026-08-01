@@ -128,8 +128,30 @@ class SafetyGate:
             denials.append("joint_mask_invalid")
         if intent.continuous and not context.hold_active:
             denials.append("hold_required")
-        if intent.family is CommandFamily.GRAVITY_RELEASE and not context.support_confirmed:
-            denials.append("gravity_support_required")
+        if intent.family is CommandFamily.GRAVITY_RELEASE:
+            if not context.support_confirmed:
+                denials.append("gravity_support_required")
+            available_mask = sum(
+                1 << capability.index
+                for capability in self.profile.capabilities
+                if capability.available
+            )
+            if intent.joint_mask == 0:
+                denials.append("joint_mask_empty")
+            if intent.joint_mask & ~available_mask:
+                denials.append("teach_mask_outside_profile")
+            if snapshot is not None and snapshot.run_state_raw == 2:
+                denials.append("homing_active")
+            if snapshot is not None and snapshot.run_state_raw == 3:
+                denials.append("already_teaching")
+            if snapshot is not None and snapshot.run_state_raw == 4:
+                denials.append("motion_active")
+            if snapshot is not None and (snapshot.moving_mask or 0) != 0:
+                denials.append("axes_still_moving")
+        if intent.family is CommandFamily.GRIPPER:
+            if not context.mock_transport and not context.hardware_assembled:
+                denials.append("hardware_not_confirmed")
+            denials.append("gripper_not_calibrated")
         if intent.family is CommandFamily.HOME:
             if snapshot is not None and snapshot.run_state_raw != 1:
                 denials.append("home_requires_ready")

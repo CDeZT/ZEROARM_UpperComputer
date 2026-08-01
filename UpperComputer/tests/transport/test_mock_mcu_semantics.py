@@ -199,6 +199,7 @@ def test_mock__teach_gates_motion_authorization() -> None:
     snapshot = _snapshot(device)
     assert snapshot.run_state_raw == 3
     assert not device.motion_authorized
+    assert device.teach_mask == 0x1D
     target = JointTarget((10_000, 0, 0, 0, 0, 0), 100, 0)
     assert (
         _result_raw(device, V1CommandCodec().encode_joint_target(target))
@@ -208,6 +209,15 @@ def test_mock__teach_gates_motion_authorization() -> None:
     snapshot = _snapshot(device)
     assert snapshot.run_state_raw == 1
     assert device.motion_authorized
+    assert (snapshot.enabled_mask or 0) & 0x1D == 0
+
+
+def test_mock__teach_rejects_unavailable_axes_and_empty_mask() -> None:
+    device = MockDevice()
+    assert _cmd_result(device, V1Command.TEACH_START, b"\x00") == V1ResultCode.ERR_ARGUMENT
+    assert _cmd_result(device, V1Command.TEACH_START, b"\x02") == V1ResultCode.ERR_RANGE
+    assert _cmd_result(device, V1Command.TEACH_START, b"\x20") == V1ResultCode.ERR_RANGE
+    assert _cmd_result(device, V1Command.TEACH_STOP, b"") == V1ResultCode.ERR_STATE
 
 
 def test_mock__unknown_command_still_returns_not_implemented() -> None:
