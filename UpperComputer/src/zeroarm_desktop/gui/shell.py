@@ -1,8 +1,9 @@
 """Navigation shell and stable global status surface."""
 
 from collections.abc import Callable
+from time import monotonic, sleep
 
-from PySide6.QtCore import QEvent, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -10,12 +11,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.domain.safety import AppMode
 from zeroarm_desktop.gui.pages.calibration import CalibrationPage
 from zeroarm_desktop.gui.pages.cartesian import CartesianPage
@@ -33,6 +36,7 @@ from zeroarm_desktop.gui.pages.trajectory import TrajectoryPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
 from zeroarm_desktop.gui.viewmodels.home import HomeViewModel
+from zeroarm_desktop.gui.viewmodels.idle_monitor import OperatorIdleHomeMonitor
 from zeroarm_desktop.gui.viewmodels.manual_joint import ManualJointViewModel
 from zeroarm_desktop.gui.viewmodels.snapshot import SnapshotViewModel, SnapshotViewState
 from zeroarm_desktop.gui.viewmodels.trajectory import TrajectoryViewModel
@@ -42,6 +46,9 @@ from zeroarm_desktop.model3d.fk import UrdfForwardKinematics
 from zeroarm_desktop.model3d.ik import NumericalIkSolver
 from zeroarm_desktop.model3d.scene import RobotSceneBuilder
 from zeroarm_desktop.version import __version__
+
+RESET_REQUIRED_MASK = 0x0E00
+CONTROLLED_SHUTDOWN_HOME_TIMEOUT_S = 5.0
 
 
 def _placeholder(object_name: str, title: str, detail: str) -> QWidget:
@@ -64,9 +71,19 @@ class MainWindow(QMainWindow):
 
     page_changed = Signal(str)
 
-    def __init__(self, *, shutdown: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        shutdown: Callable[[], None] | None = None,
+        confirm_fault_exit: Callable[[str, str], bool] | None = None,
+    ) -> None:
         super().__init__()
         self._shutdown = shutdown
+        self._confirm_fault_exit = (
+            confirm_fault_exit
+            if confirm_fault_exit is not None
+            else self._default_fault_exit_confirm
+        )
         self._pages: dict[str, int] = {}
         self._buttons: dict[str, QPushButton] = {}
         self.setObjectName("main_window")
@@ -135,6 +152,18 @@ class MainWindow(QMainWindow):
                 else AppMode.OBSERVER
             )
         )
+        self.idle_monitor = OperatorIdleHomeMonitor(self.connection_page, self.home_view_model)
+        self.idle_monitor.countdown_changed.connect(self._apply_idle_countdown)
+        self.idle_monitor.home_triggered.connect(
+            lambda text: self.notification_center.setText(text)
+        )
+        self.connection_page.session_changed.connect(
+            lambda session: self.idle_monitor.start()
+            if session is not None
+            else self.idle_monitor.stop()
+        )
+        self.manual_view_model.status_changed.connect(self.idle_monitor.note_activity)
+        self.page_changed.connect(lambda route: self.idle_monitor.note_activity())
         self.register_page("diagnostics", DiagnosticsPage(self.connection_page))
         self.register_page("protocol_console", ProtocolConsolePage(self.connection_page))
         self.register_page("gamepad_recipe", GamepadRecipePage())
@@ -242,13 +271,18 @@ class MainWindow(QMainWindow):
     def _build_status_bar(self) -> QFrame:
         bar = QFrame()
         bar.setObjectName("status_bar")
-        layout = QHBoxLayout(bar)
+        self.status_bar_layout = QHBoxLayout(bar)
+        layout = self.status_bar_layout
         self.link_status = QLabel("RX 0 B  |  TX 0 B  |  Snapshot 0 Hz")
         self.link_status.setObjectName("link_status")
         self.notification_center = QLabel("Observer 模式 | 动作能力锁定")
         self.notification_center.setObjectName("notification_center")
+        self.auto_home_badge = QLabel("自动回零 --")
+        self.auto_home_badge.setObjectName("auto_home_badge")
+        self.auto_home_badge.setProperty("class", "badge")
         layout.addWidget(self.link_status)
         layout.addStretch()
+        layout.addWidget(self.auto_home_badge)
         layout.addWidget(self.notification_center)
         return bar
 
@@ -262,6 +296,12 @@ class MainWindow(QMainWindow):
         self.manual_view_model.set_mode(mode)
         self.home_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
+
+    def _apply_idle_countdown(self, remaining_s: int) -> None:
+        if remaining_s > 0:
+            self.auto_home_badge.setText(f"自动回零 {remaining_s}s")
+        else:
+            self.auto_home_badge.setText("自动回零 触发中")
 
     def _apply_snapshot_state(self, state: SnapshotViewState) -> None:
         generation = "--" if state.generation is None else str(state.generation)
@@ -278,14 +318,67 @@ class MainWindow(QMainWindow):
             )
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self.idle_monitor.stop()
         self.snapshot_view_model.close()
         self.workspace_view_model.close()
         self.manual_view_model.stop_hold("shutdown")
         self.trajectory_view_model.abort_playback("shutdown")
+        session = self.connection_page.session
+        if (
+            session is not None
+            and session.state is SessionState.READONLY_READY
+            and not self._controlled_shutdown(session, event)
+        ):
+            return
         self.connection_page.close_session()
         if self._shutdown is not None:
             self._shutdown()
         event.accept()
+
+    def _controlled_shutdown(self, session: DeviceSession, event: QCloseEvent) -> bool:
+        snapshot = session.latest_snapshot
+        fault = snapshot.fault_flags_raw if snapshot is not None else 0
+        if fault & RESET_REQUIRED_MASK:
+            confirmed = self._confirm_fault_exit(
+                "无法安全归零退出",
+                f"检测到 RESET-REQUIRED 故障 (0x{fault:08X}), 无法自动回零。\n"
+                "请断电复位 MCU 并确认机械状态后再退出。是否仍然退出?",
+            )
+            if not confirmed:
+                event.ignore()
+                return False
+            return True
+        if not session.actions_allowed:
+            return True
+        if (
+            snapshot is not None
+            and snapshot.run_state_raw == 1
+            and fault == 0
+            and (snapshot.homed_mask or 0) != 0x1D
+        ):
+            self.notification_center.setText("受控退出: 请求回零 0x1D")
+            session.pause_polling()
+            session.send_home(0x1D)
+            deadline = monotonic() + CONTROLLED_SHUTDOWN_HOME_TIMEOUT_S
+            while monotonic() < deadline:
+                QCoreApplication.processEvents()
+                sleep(0.01)
+                session.poll_once()
+                latest = session.latest_snapshot
+                if latest is not None and (latest.homed_mask or 0) == 0x1D:
+                    self.notification_center.setText("受控退出: 回零完成证据已记录")
+                    return True
+        return True
+
+    def _default_fault_exit_confirm(self, title: str, text: str) -> bool:
+        answer = QMessageBox.warning(
+            self,
+            title,
+            text,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer is QMessageBox.StandardButton.Yes
 
     def event(self, event: QEvent) -> bool:
         if event.type() in {

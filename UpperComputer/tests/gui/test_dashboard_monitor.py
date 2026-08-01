@@ -111,7 +111,7 @@ def test_dashboard_shows_profile_readiness_and_unavailable_axes(qtbot: QtBot) ->
 
 
 def test_dashboard_shows_startup_fault_and_not_authorized(qtbot: QtBot) -> None:
-    window = MainWindow()
+    window = MainWindow(confirm_fault_exit=lambda title, text: True)
     qtbot.addWidget(window)
     window.show()
     window.connection_page.connect_button.click()
@@ -130,11 +130,12 @@ def test_dashboard_shows_startup_fault_and_not_authorized(qtbot: QtBot) -> None:
     assert "STARTUP" in fault_names.text()
     assert "运动未授权" in readiness.text()
     assert "RESET-REQUIRED" in readiness.text()
-    window.snapshot_view_model.close()
+    window.close()
+    assert session.state.value == "disconnected"
 
 
 def test_dashboard_shows_estop_fault(qtbot: QtBot) -> None:
-    window = MainWindow()
+    window = MainWindow(confirm_fault_exit=lambda title, text: True)
     qtbot.addWidget(window)
     window.show()
     window.connection_page.connect_button.click()
@@ -151,7 +152,8 @@ def test_dashboard_shows_estop_fault(qtbot: QtBot) -> None:
     assert "ESTOP" in fault_names.text()
     assert "运动未授权" in readiness.text()
     assert "RESET-REQUIRED" in readiness.text()
-    window.snapshot_view_model.close()
+    window.close()
+    assert session.state.value == "disconnected"
 
 
 def test_dashboard_shows_unknown_fields(qtbot: QtBot) -> None:

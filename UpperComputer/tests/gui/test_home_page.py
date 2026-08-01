@@ -67,7 +67,7 @@ def test_home_wizard_observer_mode_is_denied(qtbot: QtBot) -> None:
 
 
 def test_home_estop_shows_reset_required_hint(qtbot: QtBot) -> None:
-    window = MainWindow()
+    window = MainWindow(confirm_fault_exit=lambda title, text: True)
     qtbot.addWidget(window)
     _connected_operator(window)
     start = window.findChild(QPushButton, "home_start_button")

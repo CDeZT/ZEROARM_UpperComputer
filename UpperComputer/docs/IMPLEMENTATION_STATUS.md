@@ -8,10 +8,52 @@
 阶段：0.1.0 离线软件基线已存在，正在迁移到当前 MCU V1
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R2（HardwareProfile/互锁域）、R3（Mock 语义）、R4（Serial 只读验收）、R5（GUI 状态迁移）
-当前/下一单元：R6 真实 HOME 工作流（需用户明确授权 + 实机）
-当前代码修改：R1～R5 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce）
+最近完成：R8（Desktop 空闲回零 + 受控退出，含 GUI 测试卡死修复）
+当前/下一单元：R9 轨迹/Cartesian 逐点约束迁移（无硬件动作）
+当前代码修改：R1～R8 已提交（c97c140、05e5921、109c5d8、3856b82、3ba0495、66444ce、
+5787ff4、06fb8d7、R8 提交）
 ```
+
+## R8 完成记录（自动回零与受控退出）
+
+- 生产文件：`src/zeroarm_desktop/gui/viewmodels/idle_monitor.py`（新增）：
+  `OperatorIdleHomeMonitor`——Desktop operator-idle 20 秒倒计时（500ms tick），
+  到点且会话动作授权（Mock）→ `HomeViewModel.start_home()` 走 SafetyGate；
+  Serial 只读 → "跳过"提示；GET_STATE 轮询不重置此计时器（与 MCU link-silence 区分）。
+- `src/zeroarm_desktop/gui/shell.py`：接线 idle_monitor、状态栏自动回零倒计时、
+  `closeEvent` 受控退出：RESET-REQUIRED 故障 → 确认后退出（默认 QMessageBox，
+  可通过 `confirm_fault_exit` 注入以便自动化测试确定性退出）；Mock 未回零 →
+  暂停轮询 → HOME 0x1D → 有界等待（≤5s）→ 证据记录后断开。
+- `src/zeroarm_desktop/application/device_session.py`：新增 `pause_polling()`，
+  受控退出前停止后台轮询线程，消除单在途请求与动作命令的竞态。
+- 测试：`tests/gui/test_idle_shutdown.py`（新增 6 个测试）；`test_dashboard_monitor.py`
+  与 `test_home_page.py` 的故障用例注入确定性退出确认。
+- 挂起问题修复：R8 引入后 `tests/gui/test_dashboard_monitor.py` 在 teardown 的
+  `closeEvent` 中弹出模态 `QMessageBox.warning`（STARTUP/ESTOP 故障路径），
+  offscreen 环境无用户点击导致进程挂死/崩溃；修复为可注入确认回调后
+  `tests/gui` 36 passed（5.0s）。
+- 验证：ruff format/check 通过；mypy 通过；pytest 全量 241 passed / 4 skipped。
+- 硬件：本轮未连接板卡、未发送任何动作命令；受控退出仅在 Mock 上验收。
+
+## R7 完成记录（手动关节 Mock 控制）
+
+- `gui/viewmodels/manual_joint.py`：轴下拉仅 J1/J3/J4/J5（available_axes）；
+  J2/J6 preview 抛 ValueError；发送后 completion 观察（moving==0 且
+  |error|≤35_000 urad → "目标到达"；5s 超时 → "UnknownOutcome"）。
+- `gui/pages/manual_joint.py`：preview/arm/send 三步按钮、hold-to-run（仅 Mock）。
+- 测试：`tests/gui/test_manual_joint.py` 9 个（轴过滤/互锁拒绝/到达/Mock E2E/
+  Observer 拒绝/失焦撤销/全局停止）。
+- 提交：`06fb8d7`。
+
+## R6 完成记录（HOME 0x1D 向导）
+
+- `gui/viewmodels/home.py`：`HomeViewModel`——start_home 走 SafetyGate
+  （mask 0x1D）、clear_fault（FAULT_CLEAR 族，允许 FAULT 状态）、100ms 进度监控
+  （HOMED 完整 → 完成；fault → RESET-REQUIRED 提示）。
+- `gui/pages/home.py`：向导页（固定顺序 J5 → J4 → J3 → J1、进度、清除故障按钮）。
+- `DeviceSession` 动作 API：send_enable/send_disable/send_stop/send_home/
+  send_clear_fault（Serial 由 actions_allowed=False 拒绝）。
+- 提交：`5787ff4`。
 
 ## R2 完成记录（HardwareProfile 与互锁域）
 
@@ -121,8 +163,11 @@ MCU 的 J1/J3/J4/J5 已有现场动作与自动回零测试，不再描述为“
 3. R3：Mock 当前 MCU 语义升级。**已完成（2026-08-01）**。
 4. R4：Serial 只读板卡验收。**已完成（2026-08-01，COM3 实测通过）**。
 5. R5：连接/Dashboard/Monitor GUI 状态迁移。**已完成（2026-08-01）**。
-6. R6 以后：真实 HOME、手动控制、Desktop 空闲/退出回零、轨迹、示教、夹爪逐项验收
-   （动作类需用户明确授权）。
+6. R6：HOME 0x1D 向导。**已完成（2026-08-01，Mock E2E）**。
+7. R7：手动关节控制（仅可用轴 + completion 观察）。**已完成（2026-08-01，Mock）**。
+8. R8：Desktop 空闲回零 + 受控退出。**已完成（2026-08-01，Mock）**。
+9. R9 以后：轨迹逐点约束、回放、示教、夹爪、台架、数据与发布（真实动作类
+   仍需单独授权）。
 
 ## 保持独立的未来路线
 

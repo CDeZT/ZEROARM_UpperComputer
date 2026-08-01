@@ -141,6 +141,14 @@ class DeviceSession:
         with self._lock:
             self._poll_rate_hz = value
 
+    def pause_polling(self) -> None:
+        """Stop the background poller and wait for it to exit.
+
+        Used by controlled shutdown and other paths that must own the single
+        in-flight request slot without racing the poller thread.
+        """
+        self._stop_poller()
+
     def poll_once(self) -> bool:
         with self._lock:
             if self._state is not SessionState.READONLY_READY:
