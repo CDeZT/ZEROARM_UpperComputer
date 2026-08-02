@@ -25,6 +25,10 @@ class TeachPage(QWidget):
             "仅可用轴 J1/J3/J4/J5 | 必须确认支撑 | TEACH_STOP 后保持失能且不自动 ENABLE"
         )
         subtitle.setWordWrap(True)
+        self.action_lock = QLabel()
+        self.action_lock.setObjectName("teach_action_lock")
+        self.action_lock.setProperty("class", "action_lock")
+        self.action_lock.setWordWrap(True)
 
         self.axis_boxes: list[QCheckBox] = []
         axis_row = QHBoxLayout()
@@ -46,15 +50,19 @@ class TeachPage(QWidget):
 
         preview = QPushButton("预览")
         preview.setObjectName("teach_preview_button")
+        preview.setProperty("role", "secondary")
         preview.clicked.connect(self.preview)
         arm = QPushButton("Arm 5秒")
         arm.setObjectName("teach_arm_button")
+        arm.setProperty("role", "warning")
         arm.clicked.connect(self.arm)
         start = QPushButton("开始示教")
         start.setObjectName("teach_start_button")
+        start.setProperty("role", "warning")
         start.clicked.connect(self.start)
         stop = QPushButton("停止并 Review")
         stop.setObjectName("teach_stop_button")
+        stop.setProperty("role", "danger")
         stop.clicked.connect(self.stop)
         action_row = QHBoxLayout()
         for button in (preview, arm, start, stop):
@@ -95,6 +103,7 @@ class TeachPage(QWidget):
         layout.setContentsMargins(36, 32, 36, 32)
         for widget in (title, subtitle):
             layout.addWidget(widget)
+        layout.addWidget(self.action_lock)
         layout.addLayout(axis_row)
         layout.addWidget(self.support)
         layout.addLayout(action_row)

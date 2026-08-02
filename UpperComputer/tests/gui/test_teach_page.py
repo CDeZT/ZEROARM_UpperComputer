@@ -81,29 +81,29 @@ def test_teach_page__mock_e2e_record_stop_review_and_save(qtbot: QtBot) -> None:
     assert recording.samples[0].device_time_ms is None
 
 
-def test_teach_page__observer_mode_denied(qtbot: QtBot) -> None:
+def test_teach_page__observer_mode_visibly_locked(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
     window.connection_page.connect_button.click()
     window.navigate("teach")
     support = window.findChild(QCheckBox, "teach_support_confirmed")
     preview = window.findChild(QPushButton, "teach_preview_button")
-    status = window.findChild(QLabel, "teach_status")
-    assert support is not None and preview is not None and status is not None
+    lock = window.findChild(QLabel, "teach_action_lock")
+    assert support is not None and preview is not None and lock is not None
     support.setChecked(True)
-    preview.click()
-    assert "operator_mode_required" in status.text()
+    assert not preview.isEnabled()
+    assert "Operator" in lock.text()
 
 
-def test_teach_page__serial_actions_denied_message(qtbot: QtBot) -> None:
+def test_teach_page__disconnected_actions_show_lock_reason(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
     window.mode_selector.setCurrentText("Operator")
     window.navigate("teach")
     support = window.findChild(QCheckBox, "teach_support_confirmed")
     preview = window.findChild(QPushButton, "teach_preview_button")
-    status = window.findChild(QLabel, "teach_status")
-    assert support is not None and preview is not None and status is not None
+    lock = window.findChild(QLabel, "teach_action_lock")
+    assert support is not None and preview is not None and lock is not None
     support.setChecked(True)
-    preview.click()
-    assert "请先连接" in status.text() or "Session" in status.text() or "连接" in status.text()
+    assert not preview.isEnabled()
+    assert "连接" in lock.text()

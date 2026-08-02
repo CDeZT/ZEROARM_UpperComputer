@@ -27,6 +27,10 @@ class TrajectoryPage(QWidget):
         self.view_model = view_model
         title = QLabel("轨迹编辑器")
         title.setObjectName("page_title")
+        self.action_lock = QLabel()
+        self.action_lock.setObjectName("trajectory_action_lock")
+        self.action_lock.setProperty("class", "action_lock")
+        self.action_lock.setWordWrap(True)
         self.table = QTableWidget()
         self.table.setObjectName("trajectory_table")
         self.table.setColumnCount(8)
@@ -54,6 +58,14 @@ class TrajectoryPage(QWidget):
         ):
             button = QPushButton(text)
             button.setObjectName(name)
+            button.setProperty(
+                "role",
+                "primary"
+                if name == "playback_start_button"
+                else "danger"
+                if name == "playback_abort_button"
+                else "secondary",
+            )
             button.clicked.connect(operation)
             edit_buttons.addWidget(button)
         playback_buttons = QHBoxLayout()
@@ -65,11 +77,20 @@ class TrajectoryPage(QWidget):
         ):
             button = QPushButton(text)
             button.setObjectName(name)
+            button.setProperty(
+                "role",
+                "primary"
+                if name == "playback_start_button"
+                else "danger"
+                if name == "playback_abort_button"
+                else "secondary",
+            )
             button.clicked.connect(operation)
             playback_buttons.addWidget(button)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.addWidget(title)
+        layout.addWidget(self.action_lock)
         layout.addLayout(edit_buttons)
         layout.addLayout(playback_buttons)
         layout.addWidget(self.table, 1)

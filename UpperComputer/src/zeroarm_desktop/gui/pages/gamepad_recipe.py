@@ -21,6 +21,10 @@ class GamepadRecipePage(QWidget):
         self.runner = RecipeRunner()
         title = QLabel("手柄与 Recipe (Mock)")
         title.setObjectName("page_title")
+        self.action_lock = QLabel()
+        self.action_lock.setObjectName("gamepad_recipe_action_lock")
+        self.action_lock.setProperty("class", "action_lock")
+        self.action_lock.setWordWrap(True)
         self.status = QLabel("默认 Observer | Recipe 可展开为轨迹后 Mock 回放 | 经 SafetyGate")
         self.status.setObjectName("gamepad_recipe_status")
         self.status.setWordWrap(True)
@@ -32,6 +36,7 @@ class GamepadRecipePage(QWidget):
         validate.clicked.connect(self.validate_demo)
         run = QPushButton("加载到轨迹并 Mock 回放")
         run.setObjectName("run_recipe_button")
+        run.setProperty("role", "primary")
         run.clicked.connect(self.run_demo)
         hold = QPushButton("模拟手柄 Hold 映射")
         hold.setObjectName("simulate_gamepad_hold")
@@ -41,7 +46,16 @@ class GamepadRecipePage(QWidget):
         release.clicked.connect(self.simulate_release)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(36, 32, 36, 32)
-        for widget in (title, self.status, validate, run, hold, release, self.preview):
+        for widget in (
+            title,
+            self.action_lock,
+            self.status,
+            validate,
+            run,
+            hold,
+            release,
+            self.preview,
+        ):
             layout.addWidget(widget)
         layout.addStretch()
 

@@ -1,5 +1,6 @@
 """Mock and Serial connection page backed by DeviceSession."""
 
+from collections.abc import Callable
 from contextlib import suppress
 
 from PySide6.QtCore import Signal, Slot
@@ -27,10 +28,16 @@ class ConnectionPage(QWidget):
     connection_text_changed = Signal(str)
     _session_event_received = Signal(object)
 
-    def __init__(self, *, prefer_mock: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        prefer_mock: bool = True,
+        session_factory: Callable[[], DeviceSession] | None = None,
+    ) -> None:
         super().__init__()
         self.setObjectName("page_connection")
         self.session: DeviceSession | None = None
+        self._session_factory = session_factory
         self._session_event_received.connect(self._apply_session_event)
 
         title = QLabel("连接与设备")
@@ -68,6 +75,7 @@ class ConnectionPage(QWidget):
         form.addRow("状态轮询", self.poll_rate)
         self.connect_button = QPushButton("连接")
         self.connect_button.setObjectName("connect_button")
+        self.connect_button.setProperty("role", "primary")
         self.connect_button.clicked.connect(self.toggle_connection)
         self.timeline = QLabel("等待连接")
         self.timeline.setObjectName("handshake_timeline")
@@ -134,18 +142,23 @@ class ConnectionPage(QWidget):
             with suppress(Exception):
                 session.disconnect()
         try:
-            transport = self._make_transport()
-            new_session = DeviceSession(
-                transport,
-                poll_rate_hz=self._selected_poll_rate(),
-                actions_allowed=isinstance(transport, MockTransport),
-            )
+            if self._session_factory is not None:
+                new_session = self._session_factory()
+                if not isinstance(new_session, DeviceSession):
+                    raise TypeError("session_factory must return DeviceSession")
+            else:
+                transport = self._make_transport()
+                new_session = DeviceSession(
+                    transport,
+                    poll_rate_hz=self._selected_poll_rate(),
+                    actions_allowed=isinstance(transport, MockTransport),
+                )
             new_session.subscribe_events(self._session_event_received.emit)
             self.session = new_session
             self.session_changed.emit(new_session)
             self._set_error("")
-            self.connect_button.setText("连接中…")
-            self.connect_button.setEnabled(False)
+            self.connect_button.setText("取消连接")
+            self.connect_button.setEnabled(True)
             self._append_timeline("OPENING -> HANDSHAKING")
             new_session.connect()
         except Exception as error:
@@ -220,8 +233,8 @@ class ConnectionPage(QWidget):
             SessionState.HANDSHAKING,
             SessionState.RECONNECT_WAIT,
         ):
-            self.connect_button.setText("连接中…")
-            self.connect_button.setEnabled(False)
+            self.connect_button.setText("取消连接")
+            self.connect_button.setEnabled(True)
         elif state is SessionState.CLOSING:
             self.connect_button.setText("断开中…")
             self.connect_button.setEnabled(False)

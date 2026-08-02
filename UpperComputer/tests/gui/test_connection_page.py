@@ -3,8 +3,10 @@
 from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
-from zeroarm_desktop.application.device_session import SessionState
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
+from zeroarm_desktop.gui.pages.connection import ConnectionPage
 from zeroarm_desktop.gui.shell import MainWindow
+from zeroarm_desktop.transport.mock import MockSettings, MockTransport
 
 
 def test_gui_connect_disconnect__mock_v1_handshake(qtbot: QtBot) -> None:
@@ -40,3 +42,23 @@ def test_gui_port_refresh_handles_no_hardware(qtbot: QtBot) -> None:
     ports = window.findChild(QComboBox, "port_selector")
     assert ports is not None
     assert ports.count() >= 1
+
+
+def test_handshake_can_be_cancelled_without_waiting_for_timeout(qtbot: QtBot) -> None:
+    page = ConnectionPage(
+        session_factory=lambda: DeviceSession(
+            MockTransport(MockSettings(response_delay_ms=200)),
+            actions_allowed=True,
+        )
+    )
+    qtbot.addWidget(page)
+
+    page.connect_button.click()
+
+    assert page.session is not None
+    assert page.session.state is SessionState.HANDSHAKING
+    assert page.connect_button.isEnabled()
+    assert page.connect_button.text() == "取消连接"
+
+    page.connect_button.click()
+    assert page.session is None

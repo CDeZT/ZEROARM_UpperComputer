@@ -82,17 +82,17 @@ def test_manual_joint_preview_arm_send_mock_e2e(qtbot: QtBot) -> None:
     assert "Mock已接受" in status.text()
 
 
-def test_manual_joint_observer_mode_is_denied(qtbot: QtBot) -> None:
+def test_manual_joint_observer_mode_is_visibly_locked(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
     window.connection_page.connect_button.click()
     window.navigate("manual_joint")
     preview = window.findChild(QPushButton, "preview_joint_button")
     assert preview is not None
-    preview.click()
-    status = window.findChild(QLabel, "manual_joint_status")
-    assert status is not None
-    assert "operator_mode_required" in status.text()
+    lock = window.findChild(QLabel, "manual_action_lock")
+    assert lock is not None
+    assert not preview.isEnabled()
+    assert "Operator" in lock.text()
 
 
 def test_hold_release_and_disconnect_stop_scheduling(qtbot: QtBot) -> None:

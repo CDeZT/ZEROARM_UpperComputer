@@ -54,16 +54,16 @@ def test_home_wizard_shows_homing_progress_order(qtbot: QtBot) -> None:
     assert "顺序 J5 -> J4 -> J3 -> J1" in status.text()
 
 
-def test_home_wizard_observer_mode_is_denied(qtbot: QtBot) -> None:
+def test_home_wizard_observer_mode_is_visibly_locked(qtbot: QtBot) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
     window.connection_page.connect_button.click()
     window.navigate("home")
     start = window.findChild(QPushButton, "home_start_button")
-    status = window.findChild(QLabel, "home_status")
-    assert start is not None and status is not None
-    start.click()
-    assert "operator_mode_required" in status.text()
+    lock = window.findChild(QLabel, "home_action_lock")
+    assert start is not None and lock is not None
+    assert not start.isEnabled()
+    assert "Operator" in lock.text()
 
 
 def test_home_estop_shows_reset_required_hint(qtbot: QtBot) -> None:

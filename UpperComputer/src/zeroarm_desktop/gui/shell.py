@@ -5,7 +5,7 @@ from contextlib import suppress
 from pathlib import Path
 from time import monotonic, sleep
 
-from PySide6.QtCore import QCoreApplication, QEvent, QTimer, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -41,6 +42,7 @@ from zeroarm_desktop.gui.pages.manual_joint import ManualJointPage
 from zeroarm_desktop.gui.pages.teach import TeachPage
 from zeroarm_desktop.gui.pages.trajectory import TrajectoryPage
 from zeroarm_desktop.gui.pages.workspace3d import Workspace3DPage
+from zeroarm_desktop.gui.plot_style import apply_plot_theme
 from zeroarm_desktop.gui.theme import DARK_THEME, LIGHT_THEME
 from zeroarm_desktop.gui.viewmodels.home import HomeViewModel
 from zeroarm_desktop.gui.viewmodels.idle_monitor import OperatorIdleHomeMonitor
@@ -79,6 +81,25 @@ class MainWindow(QMainWindow):
     """Application shell with deterministic routing and safe global controls."""
 
     page_changed = Signal(str)
+    ACTION_CONTROL_NAMES = (
+        "preview_joint_button",
+        "arm_joint_button",
+        "send_joint_button",
+        "hold_negative",
+        "hold_positive",
+        "playback_start_button",
+        "playback_pause_button",
+        "playback_resume_button",
+        "playback_abort_button",
+        "teach_preview_button",
+        "teach_arm_button",
+        "teach_start_button",
+        "teach_stop_button",
+        "home_start_button",
+        "home_clear_fault_button",
+        "mock_home_button",
+        "run_recipe_button",
+    )
 
     def __init__(
         self,
@@ -222,6 +243,7 @@ class MainWindow(QMainWindow):
         self._metrics_timer.setInterval(1000)
         self._metrics_timer.timeout.connect(self._refresh_performance)
         self._metrics_timer.start()
+        self._refresh_action_availability()
         self.navigate("connection")
         self.apply_theme("dark")
         if self.launch_options.safe_mode:
@@ -254,9 +276,12 @@ class MainWindow(QMainWindow):
             raise ValueError("theme must be dark or light")
         self._theme_name = theme
         self.setStyleSheet(DARK_THEME if theme == "dark" else LIGHT_THEME)
+        apply_plot_theme(self, theme)
 
     def set_connection_text(self, text: str) -> None:
         self.connection_badge.setText(text)
+        if hasattr(self, "manual_view_model"):
+            self._refresh_action_availability()
 
     def _build_header(self) -> QFrame:
         header = QFrame()
@@ -304,8 +329,16 @@ class MainWindow(QMainWindow):
     def _build_navigation(self) -> QFrame:
         navigation = QFrame()
         navigation.setObjectName("navigation")
-        navigation.setFixedWidth(236)
-        layout = QVBoxLayout(navigation)
+        navigation.setFixedWidth(244)
+        outer_layout = QVBoxLayout(navigation)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setObjectName("navigation_scroll")
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        content.setObjectName("navigation_content")
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(14, 18, 14, 18)
         layout.setSpacing(6)
         groups = (
@@ -357,6 +390,8 @@ class MainWindow(QMainWindow):
         theme.setObjectName("theme_toggle_button")
         theme.clicked.connect(self._toggle_theme)
         layout.addWidget(theme)
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll)
         return navigation
 
     def _build_status_bar(self) -> QFrame:
@@ -404,6 +439,47 @@ class MainWindow(QMainWindow):
         self.trajectory_view_model.set_mode(mode)
         self.teach_view_model.set_mode(mode)
         self.notification_center.setText(f"{text} 模式 | Serial动作始终禁用")
+        self._refresh_action_availability()
+
+    def _refresh_action_availability(self) -> None:
+        session = self.connection_page.session
+        if session is None:
+            reason = "动作锁定：请先连接 Mock 设备"
+        elif not session.actions_allowed:
+            reason = "动作锁定：Serial 会话保持只读"
+        elif session.state is not SessionState.READONLY_READY:
+            reason = f"动作锁定：会话状态 {session.state.value}"
+        elif self.mode_selector.currentText() != "Operator":
+            reason = "动作锁定：请切换到 Operator 模式"
+        else:
+            reason = ""
+        allowed = not reason
+        for object_name in self.ACTION_CONTROL_NAMES:
+            button = self.findChild(QPushButton, object_name)
+            if button is not None:
+                button.setEnabled(allowed)
+                button.setToolTip(reason if reason else "动作已解锁；执行前仍经过 SafetyGate")
+                button.setAccessibleDescription(
+                    reason if reason else "动作已解锁，执行前仍经过安全检查"
+                )
+        lock_names = (
+            "manual_action_lock",
+            "home_action_lock",
+            "teach_action_lock",
+            "trajectory_action_lock",
+            "calibration_action_lock",
+            "gamepad_recipe_action_lock",
+        )
+        for object_name in lock_names:
+            label = self.findChild(QLabel, object_name)
+            if label is None:
+                continue
+            label.setText(
+                reason if reason else "动作已解锁：执行前请确认机械状态与工作空间"
+            )
+            label.setProperty("unlocked", allowed)
+            label.style().unpolish(label)
+            label.style().polish(label)
 
     def _apply_idle_countdown(self, remaining_s: int) -> None:
         if remaining_s > 0:
@@ -438,6 +514,7 @@ class MainWindow(QMainWindow):
             )
         if device is None:
             self.firmware_badge.setText("固件未知")
+        self._refresh_action_availability()
 
     def _on_teach_trajectory_saved(self, trajectory: object) -> None:
         from zeroarm_desktop.domain.trajectory import Trajectory

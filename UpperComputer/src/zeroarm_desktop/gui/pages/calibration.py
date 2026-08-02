@@ -20,6 +20,10 @@ class CalibrationPage(QWidget):
             "V1 不支持读写固件标定 | 本机候选可导出 | 真实回零走下方 HOME 0x1D (仅 Mock)"
         )
         subtitle.setWordWrap(True)
+        self.action_lock = QLabel()
+        self.action_lock.setObjectName("calibration_action_lock")
+        self.action_lock.setProperty("class", "action_lock")
+        self.action_lock.setWordWrap(True)
         self.status = QLabel("等待操作")
         self.status.setObjectName("calibration_status")
         self.status.setWordWrap(True)
@@ -49,11 +53,23 @@ class CalibrationPage(QWidget):
         write.setEnabled(False)
         home = QPushButton("请求 Mock HOME 0x1D")
         home.setObjectName("mock_home_button")
+        home.setProperty("role", "warning")
         home.clicked.connect(self.start_home)
         home_view_model.status_changed.connect(self.status.setText)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(36, 32, 36, 32)
-        for widget in (title, subtitle, checksum, axes, order, save, write, home, self.status):
+        for widget in (
+            title,
+            subtitle,
+            self.action_lock,
+            checksum,
+            axes,
+            order,
+            save,
+            write,
+            home,
+            self.status,
+        ):
             layout.addWidget(widget)
         layout.addStretch()
 

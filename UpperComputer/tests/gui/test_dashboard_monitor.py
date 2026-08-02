@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from time import monotonic_ns
 from typing import cast
 
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from zeroarm_desktop.domain.models import RobotSnapshot
@@ -192,3 +192,13 @@ def test_dashboard_freshness_is_bounded_positive(qtbot: QtBot) -> None:
     assert state.snapshot_age_ms is not None
     assert 0 <= state.snapshot_age_ms < 60_000
     view_model.close()
+
+
+def test_light_theme_applies_light_background_to_realtime_plot(qtbot: QtBot) -> None:
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.navigate("joint_monitor")
+
+    window.apply_theme("light")
+
+    assert window.findChild(QWidget, "joint_plot").backgroundBrush().color().name() == "#ffffff"
