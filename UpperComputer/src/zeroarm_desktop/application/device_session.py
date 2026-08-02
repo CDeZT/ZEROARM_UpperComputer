@@ -55,6 +55,7 @@ class ActionRequest:
         self._status = ActionStatus.PENDING
         self._result: WireResult | None = None
         self._detail = "awaiting device response"
+        self._callbacks = CallbackRegistry()
         self._lock = RLock()
 
     @property
@@ -86,6 +87,14 @@ class ActionRequest:
         with self._lock:
             return self._detail
 
+    def subscribe(self, callback: Callable[["ActionRequest"], None]) -> Subscription:
+        """Notify once on completion, including for late subscribers."""
+        with self._lock:
+            if self._status is ActionStatus.PENDING:
+                return self._callbacks.subscribe(callback)
+        callback(self)
+        return Subscription(lambda: None)
+
     def _complete(self, result: WireResult) -> None:
         with self._lock:
             if self._status is not ActionStatus.PENDING:
@@ -93,6 +102,7 @@ class ActionRequest:
             self._result = result
             self._status = ActionStatus.COMPLETED
             self._detail = f"V1 result={result.raw_value}"
+        self._callbacks.publish(self)
 
     def _finish(self, status: ActionStatus, detail: str) -> None:
         with self._lock:
@@ -100,6 +110,7 @@ class ActionRequest:
                 return
             self._status = status
             self._detail = detail
+        self._callbacks.publish(self)
 
 
 @dataclass(frozen=True, slots=True)

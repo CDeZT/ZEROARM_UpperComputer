@@ -3,7 +3,9 @@
 from PySide6.QtWidgets import QCheckBox, QLabel, QPushButton
 from pytestqt.qtbot import QtBot
 
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.gui.shell import MainWindow
+from zeroarm_desktop.transport.mock import MockSettings, MockTransport
 
 
 def _connected_operator(window: MainWindow) -> None:
@@ -107,3 +109,40 @@ def test_teach_page__disconnected_actions_show_lock_reason(qtbot: QtBot) -> None
     support.setChecked(True)
     assert not preview.isEnabled()
     assert "连接" in lock.text()
+
+
+def test_teach_page__waits_for_delayed_start_and_stop_ack(qtbot: QtBot) -> None:
+    def session_factory() -> DeviceSession:
+        return DeviceSession(
+            MockTransport(MockSettings(response_delay_ms=50)),
+            actions_allowed=True,
+        )
+
+    window = MainWindow(session_factory=session_factory)
+    qtbot.addWidget(window)
+    window.show()
+    _connected_operator(window)
+    session = window.connection_page.session
+    assert session is not None
+    qtbot.waitUntil(lambda: session.state is SessionState.READONLY_READY, timeout=3000)
+    support = window.findChild(QCheckBox, "teach_support_confirmed")
+    preview = window.findChild(QPushButton, "teach_preview_button")
+    arm = window.findChild(QPushButton, "teach_arm_button")
+    start = window.findChild(QPushButton, "teach_start_button")
+    stop = window.findChild(QPushButton, "teach_stop_button")
+    status = window.findChild(QLabel, "teach_status")
+    assert None not in (support, preview, arm, start, stop, status)
+    assert support is not None and preview is not None and arm is not None
+    assert start is not None and stop is not None and status is not None
+
+    support.setChecked(True)
+    preview.click()
+    arm.click()
+    start.click()
+    assert "等待设备确认" in status.text()
+    qtbot.waitUntil(lambda: window.teach_view_model.state.value == "recording", timeout=3000)
+
+    stop.click()
+    assert "等待" in status.text()
+    qtbot.waitUntil(lambda: window.teach_view_model.state.value == "review", timeout=3000)
+    assert "UnknownOutcome" not in status.text()

@@ -152,11 +152,17 @@ def test_action_request_completes_after_delayed_transport_response() -> None:
     _wait_until(lambda: session.state is SessionState.READONLY_READY)
 
     request = session.send_stop()
+    completions: list[ActionStatus] = []
+    request.subscribe(lambda completed: completions.append(completed.status))
 
     assert request.status is ActionStatus.PENDING
     _wait_until(lambda: request.done)
     assert request.status is ActionStatus.COMPLETED
     assert request.raw_value == 0
+    assert completions == [ActionStatus.COMPLETED]
+    late_completions: list[ActionStatus] = []
+    request.subscribe(lambda completed: late_completions.append(completed.status))
+    assert late_completions == [ActionStatus.COMPLETED]
     session.disconnect()
 
 
