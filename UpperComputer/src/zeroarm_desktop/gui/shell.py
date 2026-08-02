@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
         self.evidence_log = EvidenceLog()
         self.recording = SessionRecordingBridge(session_database_path)
         self.performance_sampler = PerformanceSampler()
+        self._shown_recorder_error: str | None = None
         self.setObjectName("main_window")
         self.setWindowTitle(f"ZeroArm Desktop {__version__}")
         self.setMinimumSize(1280, 720)
@@ -429,7 +430,12 @@ class MainWindow(QMainWindow):
 
     def _on_session_changed(self, session: object) -> None:
         device = session if isinstance(session, DeviceSession) else None
-        self.recording.bind_session(device)
+        recording_started = self.recording.bind_session(device)
+        if device is not None and not recording_started:
+            self._shown_recorder_error = self.recording.last_error
+            self.notification_center.setText(
+                f"Recorder 不可用: {self.recording.last_error or 'unknown error'}"
+            )
         if device is None:
             self.firmware_badge.setText("固件未知")
 
@@ -462,6 +468,10 @@ class MainWindow(QMainWindow):
         )
         if sample.notes:
             text += " | " + ",".join(sample.notes)
+        recorder_error = self.recording.last_error
+        if recorder_error is not None and recorder_error != self._shown_recorder_error:
+            self._shown_recorder_error = recorder_error
+            self.notification_center.setText(f"Recorder 已停止: {recorder_error}")
         self.dashboard_page.set_session_metrics(text)
         self.diagnostics_page.set_performance_text(text)
 

@@ -1,6 +1,7 @@
 """Configuration, SQLite recording, migration, and export tests."""
 
 import json
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -72,3 +73,36 @@ def test_recorder_reports_bounded_queue_drops(tmp_path: Path) -> None:
     recorder.close()
     assert not all(accepted)
     assert recorder.statistics.events_dropped > 0
+
+
+def test_recorder_stops_accepting_events_after_database_write_failure(tmp_path: Path) -> None:
+    database = tmp_path / "failed-events.sqlite3"
+    connection_count = 0
+
+    def failing_worker_connection(path: Path) -> sqlite3.Connection:
+        nonlocal connection_count
+        connection_count += 1
+        connection = connect_database(path)
+        if connection_count == 2:
+            connection.execute(
+                """
+                CREATE TRIGGER fail_event_insert
+                BEFORE INSERT ON events
+                BEGIN
+                    SELECT RAISE(FAIL, 'simulated recorder write failure');
+                END
+                """
+            )
+        return connection
+
+    recorder = Recorder(database, connection_factory=failing_worker_connection)
+    recorder.start()
+    assert recorder.append(RecordEvent(1, datetime.now(UTC), "will_fail"))
+
+    recorder.flush()
+
+    assert recorder.failed
+    assert recorder.statistics.last_error == "simulated recorder write failure"
+    assert recorder.statistics.events_dropped == 1
+    assert not recorder.append(RecordEvent(2, datetime.now(UTC), "rejected"))
+    recorder.close()

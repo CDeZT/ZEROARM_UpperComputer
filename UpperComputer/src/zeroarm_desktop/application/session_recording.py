@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,31 +21,42 @@ class SessionRecordingBridge:
 
     def __init__(self, database_path: Path | None = None) -> None:
         path = database_path or (default_data_root() / "sessions" / "zeroarm-sessions.sqlite3")
-        self.recorder = Recorder(path)
+        self.recorder = Recorder(path, on_error=self._on_recorder_error)
         self._session: DeviceSession | None = None
         self._snapshot_sub: Subscription | None = None
         self._event_sub: Subscription | None = None
         self._session_id: str | None = None
+        self._last_error: str | None = None
 
     @property
     def session_id(self) -> str | None:
         return self._session_id
 
-    def bind_session(self, session: DeviceSession | None) -> None:
+    @property
+    def last_error(self) -> str | None:
+        return self._last_error
+
+    def bind_session(self, session: DeviceSession | None) -> bool:
         self.unbind()
+        self._last_error = None
         if session is None:
-            return
+            return False
+        try:
+            self._session_id = self.recorder.start(
+                {
+                    "app_version": __version__,
+                    "actions_allowed": session.actions_allowed,
+                    "transport": "mock" if session.actions_allowed else "serial_or_unknown",
+                }
+            )
+        except (OSError, sqlite3.Error, RuntimeError) as error:
+            self._last_error = str(error)
+            self._session_id = None
+            return False
         self._session = session
-        self._session_id = self.recorder.start(
-            {
-                "app_version": __version__,
-                "actions_allowed": session.actions_allowed,
-                "transport": "mock" if session.actions_allowed else "serial_or_unknown",
-            }
-        )
         self._event_sub = session.subscribe_events(self._on_event)
         self._snapshot_sub = session.subscribe_snapshots(self._on_snapshot)
-        self.recorder.append(
+        self._append(
             RecordEvent(
                 monotonic_ns(),
                 datetime.now(UTC),
@@ -52,6 +64,7 @@ class SessionRecordingBridge:
                 {"session_state": session.state.value},
             )
         )
+        return True
 
     def unbind(self) -> None:
         if self._snapshot_sub is not None:
@@ -60,7 +73,7 @@ class SessionRecordingBridge:
         if self._event_sub is not None:
             self._event_sub.cancel()
             self._event_sub = None
-        if self._session_id is not None:
+        if self._session_id is not None or self.recorder.failed:
             with suppress(TimeoutError):
                 self.recorder.close(timeout_s=2.0)
         self._session = None
@@ -69,10 +82,10 @@ class SessionRecordingBridge:
     def note(self, kind: str, payload: dict[str, object] | None = None) -> None:
         if self._session_id is None:
             return
-        self.recorder.append(RecordEvent(monotonic_ns(), datetime.now(UTC), kind, payload))
+        self._append(RecordEvent(monotonic_ns(), datetime.now(UTC), kind, payload))
 
     def _on_snapshot(self, snapshot: RobotSnapshot) -> None:
-        self.recorder.append(
+        self._append(
             RecordEvent(
                 snapshot.received_monotonic_ns,
                 snapshot.received_wall_utc,
@@ -93,7 +106,7 @@ class SessionRecordingBridge:
         )
 
     def _on_event(self, event: SessionEvent) -> None:
-        self.recorder.append(
+        self._append(
             RecordEvent(
                 monotonic_ns(),
                 datetime.now(UTC),
@@ -103,3 +116,24 @@ class SessionRecordingBridge:
         )
         if event.state is SessionState.DISCONNECTED:
             self.unbind()
+
+    def _append(self, event: RecordEvent) -> bool:
+        try:
+            accepted = self.recorder.append(event)
+        except RuntimeError as error:
+            self._last_error = str(error)
+            return False
+        if not accepted:
+            self._last_error = self.recorder.statistics.last_error or "recording queue full"
+        return accepted
+
+    def _on_recorder_error(self, detail: str) -> None:
+        self._last_error = detail
+        self._session_id = None
+        self._session = None
+        if self._snapshot_sub is not None:
+            self._snapshot_sub.cancel()
+            self._snapshot_sub = None
+        if self._event_sub is not None:
+            self._event_sub.cancel()
+            self._event_sub = None
