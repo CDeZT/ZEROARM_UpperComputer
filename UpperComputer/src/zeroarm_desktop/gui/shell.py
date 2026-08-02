@@ -486,9 +486,7 @@ class MainWindow(QMainWindow):
             label = self.findChild(QLabel, object_name)
             if label is None:
                 continue
-            label.setText(
-                reason if reason else "动作已解锁：执行前请确认机械状态与工作空间"
-            )
+            label.setText(reason if reason else "动作已解锁：执行前请确认机械状态与工作空间")
             label.setProperty("unlocked", allowed)
             label.style().unpolish(label)
             label.style().polish(label)

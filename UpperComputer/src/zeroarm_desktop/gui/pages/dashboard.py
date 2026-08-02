@@ -35,18 +35,12 @@ class DashboardPage(QWidget):
         self.auto_home.setVisible(False)
         summary = QGridLayout()
         summary.setSpacing(12)
-        self.state_card = self._status_card(
-            "dashboard_state_card", "运行状态", self.run_state
-        )
+        self.state_card = self._status_card("dashboard_state_card", "运行状态", self.run_state)
         self.readiness_card = self._status_card(
             "dashboard_readiness_card", "运动授权", self.readiness
         )
-        self.fault_card = self._status_card(
-            "dashboard_fault_card", "故障", self.fault
-        )
-        self.freshness_card = self._status_card(
-            "dashboard_freshness_card", "快照", self.freshness
-        )
+        self.fault_card = self._status_card("dashboard_fault_card", "故障", self.fault)
+        self.freshness_card = self._status_card("dashboard_freshness_card", "快照", self.freshness)
         for column, card in enumerate(
             (self.state_card, self.readiness_card, self.fault_card, self.freshness_card)
         ):

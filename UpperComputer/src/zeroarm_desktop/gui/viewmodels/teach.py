@@ -281,9 +281,7 @@ class TeachViewModel(QObject):
                 session = getattr(self._provider, "session", None)
                 snapshot = session.latest_snapshot if isinstance(session, DeviceSession) else None
                 if snapshot is None or snapshot.run_state_raw == 3:
-                    self.status_changed.emit(
-                        "TEACH_STOP ACK | 等待失能状态快照 | 不自动 ENABLE"
-                    )
+                    self.status_changed.emit("TEACH_STOP ACK | 等待失能状态快照 | 不自动 ENABLE")
                     return
             self._finish_stop(request)
 
@@ -306,9 +304,7 @@ class TeachViewModel(QObject):
             self._on_snapshot(session.latest_snapshot)
         self._stats_timer.start()
         self.state_changed.emit(self.recorder.state.value)
-        self.status_changed.emit(
-            f"RECORDING | TEACH_START OK raw={request.raw_value} | 保持支撑"
-        )
+        self.status_changed.emit(f"RECORDING | TEACH_START OK raw={request.raw_value} | 保持支撑")
         self._emit_stats()
         session.resume_polling()
 

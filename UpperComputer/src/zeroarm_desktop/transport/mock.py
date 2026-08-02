@@ -82,9 +82,7 @@ class MockTransport:
         self._set_state(LinkState.CLOSING)
         self._set_state(LinkState.CLOSED)
 
-    def write(
-        self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL
-    ) -> None:
+    def write(self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL) -> None:
         del priority
         if not isinstance(data, bytes):
             raise TypeError("transport data must be bytes")

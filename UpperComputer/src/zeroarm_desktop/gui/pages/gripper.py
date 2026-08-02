@@ -117,8 +117,7 @@ class GripperPage(QWidget):
         decision = SafetyGate().evaluate(
             CommandIntent(CommandFamily.GRIPPER, joint_mask=0),
             SafetyContext(
-                isinstance(session, DeviceSession)
-                and session.state is SessionState.READONLY_READY,
+                isinstance(session, DeviceSession) and session.state is SessionState.READONLY_READY,
                 AppMode.OPERATOR,
                 snapshot,
                 0,

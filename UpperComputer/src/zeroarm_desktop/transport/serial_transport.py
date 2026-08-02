@@ -143,9 +143,7 @@ class SerialTransport:
         self._close_port()
         self._set_state(LinkState.CLOSED)
 
-    def write(
-        self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL
-    ) -> None:
+    def write(self, data: bytes, *, priority: WritePriority = WritePriority.NORMAL) -> None:
         if not isinstance(data, bytes):
             raise TypeError("transport data must be bytes")
         if not isinstance(priority, WritePriority):

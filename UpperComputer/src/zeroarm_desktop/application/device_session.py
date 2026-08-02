@@ -658,9 +658,7 @@ class DeviceSession:
         if state is SessionState.HANDSHAKING:
             self._schedule_reconnect(f"handshake timeout ({audit})")
         elif command is not None and command != int(V1Command.GET_STATE):
-            self._events.publish(
-                SessionEvent("unknown_outcome", state, f"{audit} was not retried")
-            )
+            self._events.publish(SessionEvent("unknown_outcome", state, f"{audit} was not retried"))
 
     def _schedule_reconnect(self, reason: str) -> None:
         with self._lock:

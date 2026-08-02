@@ -123,9 +123,7 @@ def test_session_permanent_handshake_loss_faults_after_bounded_reconnects() -> N
 
 
 def test_stop_supersedes_an_unanswered_state_poll() -> None:
-    transport = MockTransport(
-        MockSettings(faults=MockFaults(drop_response_numbers=frozenset({3})))
-    )
+    transport = MockTransport(MockSettings(faults=MockFaults(drop_response_numbers=frozenset({3}))))
     session = DeviceSession(
         transport,
         actions_allowed=True,
@@ -167,9 +165,7 @@ def test_action_request_completes_after_delayed_transport_response() -> None:
 
 
 def test_action_timeout_reports_unknown_outcome_without_retry() -> None:
-    transport = MockTransport(
-        MockSettings(faults=MockFaults(drop_response_numbers=frozenset({3})))
-    )
+    transport = MockTransport(MockSettings(faults=MockFaults(drop_response_numbers=frozenset({3}))))
     session = DeviceSession(
         transport,
         actions_allowed=True,
