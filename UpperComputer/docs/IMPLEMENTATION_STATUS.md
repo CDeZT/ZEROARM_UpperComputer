@@ -10,11 +10,24 @@
 阶段：0.1.0 离线软件基线 + 当前 MCU V1 迁移主路径已通（Mock GUI 可演示）
 旧版完成记录：单元0～24、27/28/29/32的软件基线
 当前计划：V2 R0～R15
-最近完成：R15 代码与文档提交（打包 dry-run 冒烟、UI 审查修复、Codex 技能链、质量门全绿）
-当前/下一单元：R15 Windows 真机构建与安装验收（PyInstaller 产物、干净环境烟雾、Inno 安装/升级/卸载实测）
-Git tip：d92926b — 以 git log 现场为准
-验证基线：pytest 272 passed / 4 skipped；ruff / format / mypy 全过
+最近完成：2026-08-02 全项目缺陷整治（安全、会话、Recorder、分层、异步示教、UI/UX）
+当前/下一单元：剩余 P1/P2 见 `PROJECT_AUDIT_2026-08-02.md`；真实 Serial 动作与 Windows 发布仍须专项授权/环境
+最近代码 tip：63c52b5 — 文档提交后以 git log 现场为准
+验证基线：pytest 294 passed / 4 skipped，coverage 89%；ruff format/check / mypy 全过
 ```
+
+## 全项目缺陷整治（2026-08-02）
+
+- 安全：连续点动/回放/示教期间禁止空闲 HOME；全局软件 STOP 停止本地调度并在授权会话发送 V1 STOP。
+- 会话：请求超时、有限重连、`UnknownOutcome`、异步 `ActionRequest`、紧急 STOP 写队列优先级。
+- 存储：测试数据根目录隔离；Recorder 的启动/工作线程 SQLite 故障会停止录制并反馈到 GUI。
+- 架构：领域层不再依赖应用/协议等外层；Shell 不再绕过 `CommandService` 直发 HOME；移除重复旧主窗口。
+- 退出：受控回零改为 QTimer 驱动，不再阻塞 GUI；等待链路空闲、经 SafetyGate HOME、持续观察 `homed 0x1D`，超时须确认。
+- 示教：TEACH_START/STOP 等待异步 ACK；STOP 额外等待失能状态快照；跨线程快照经 Qt Signal 回 GUI 线程。
+- UI/UX：导航可滚动、Dashboard 卡片化、浅色曲线主题修复、动作锁定原因前置、危险动作语义色、连接可取消。
+- 原子提交：`b4ceec9`、`f222904`、`341aa05`、`cb2d0c0`、`065bc36`、`58909c3`、`63c52b5`。
+- 最终覆盖率：89%（6661 statements，765 missed）；低覆盖模块与剩余产品缺口见专项审计。
+- 未连接板卡、未发送真实动作、未改 MCU、未实施协议 V2。
 
 ## R15 完成记录（2026-08-02，macOS 可做部分）
 
