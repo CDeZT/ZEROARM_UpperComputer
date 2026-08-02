@@ -177,6 +177,12 @@ class DeviceSession:
             return self._state
 
     @property
+    def request_in_flight(self) -> bool:
+        """Whether the V1 single-inflight slot is currently occupied."""
+        with self._lock:
+            return self._expected_command is not None
+
+    @property
     def identity(self) -> FirmwareIdentity | None:
         with self._lock:
             return self._identity

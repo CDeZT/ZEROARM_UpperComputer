@@ -5,8 +5,18 @@ from datetime import datetime
 from enum import IntEnum
 
 from zeroarm_desktop.domain.errors import ProtocolDecodeError
-from zeroarm_desktop.domain.models import FirmwareIdentity, JointTarget, JointVector, RobotSnapshot
+from zeroarm_desktop.domain.models import (
+    FirmwareIdentity,
+    JointTarget,
+    JointVector,
+    RobotFaultFlag,
+    RobotRunState,
+    RobotSnapshot,
+)
 from zeroarm_desktop.protocol.frame_codec import FrameCodec, ProtocolFrame
+
+V1RunState = RobotRunState
+V1FaultFlag = RobotFaultFlag
 
 
 class V1Command(IntEnum):
@@ -45,15 +55,6 @@ class V1GripperCommand(IntEnum):
     TORQUE = 0x34
 
 
-class V1RunState(IntEnum):
-    BOOT = 0
-    READY = 1
-    HOMING = 2
-    TEACHING = 3
-    RUNNING = 4
-    FAULT = 5
-
-
 class V1ResultCode(IntEnum):
     OK = 0
     ERR_ARGUMENT = 1
@@ -64,23 +65,6 @@ class V1ResultCode(IntEnum):
     ERR_QUEUE_FULL = 6
     ERR_IO = 7
     ERR_NOT_IMPLEMENTED = 8
-
-
-class V1FaultFlag(IntEnum):
-    """Fault bits from MCU Robot/Inc/robot_state.h."""
-
-    TARGET_RANGE = 1 << 0
-    HOST_TX = 1 << 1
-    INTERNAL_STATE = 1 << 2
-    MOTOR_TX = 1 << 3
-    MOTOR_FEEDBACK = 1 << 4
-    UART_RX_OVERFLOW = 1 << 5
-    CAN_RX_DROP = 1 << 6
-    SERVICE_PARTIAL = 1 << 7
-    FEEDBACK_STALE = 1 << 8
-    STARTUP = 1 << 9
-    HOMING = 1 << 10
-    ESTOP = 1 << 11
 
 
 RESET_REQUIRED_FAULTS = V1FaultFlag.STARTUP | V1FaultFlag.HOMING | V1FaultFlag.ESTOP

@@ -3,9 +3,9 @@
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
-from time import monotonic, sleep
+from time import monotonic_ns
 
-from PySide6.QtCore import QCoreApplication, QEvent, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
@@ -108,6 +108,7 @@ class MainWindow(QMainWindow):
         confirm_fault_exit: Callable[[str, str], bool] | None = None,
         session_database_path: Path | None = None,
         launch_options: LaunchOptions | None = None,
+        session_factory: Callable[[], DeviceSession] | None = None,
     ) -> None:
         super().__init__()
         self._shutdown = shutdown
@@ -124,6 +125,11 @@ class MainWindow(QMainWindow):
         self.recording = SessionRecordingBridge(session_database_path)
         self.performance_sampler = PerformanceSampler()
         self._shown_recorder_error: str | None = None
+        self._shutdown_pending = False
+        self._shutdown_ready = False
+        self._shutdown_home_started = False
+        self._shutdown_deadline_ns = 0
+        self._shutdown_session: DeviceSession | None = None
         self.setObjectName("main_window")
         self.setWindowTitle(f"ZeroArm Desktop {__version__}")
         self.setMinimumSize(1280, 720)
@@ -147,7 +153,10 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_status_bar())
         self.setCentralWidget(root)
 
-        self.connection_page = ConnectionPage(prefer_mock=True)
+        self.connection_page = ConnectionPage(
+            prefer_mock=True,
+            session_factory=session_factory,
+        )
         self.connection_page.connection_text_changed.connect(self.set_connection_text)
         self.software_stop_view_model = SoftwareStopViewModel(self.connection_page)
         self.software_stop_view_model.status_changed.connect(self.notification_center.setText)
@@ -201,6 +210,9 @@ class MainWindow(QMainWindow):
             ),
         )
         self.home_view_model = HomeViewModel(self.connection_page)
+        self._shutdown_timer = QTimer(self)
+        self._shutdown_timer.setInterval(50)
+        self._shutdown_timer.timeout.connect(self._shutdown_tick)
         self.register_page("calibration", CalibrationPage(self.home_view_model))
         self.register_page("home", HomePage(self.home_view_model))
         self.connection_page.session_changed.connect(
@@ -553,6 +565,20 @@ class MainWindow(QMainWindow):
         self.diagnostics_page.set_performance_text(text)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._shutdown_ready:
+            self._finish_close(event)
+            return
+        session = self.connection_page.session
+        if (
+            session is not None
+            and session.state is SessionState.READONLY_READY
+            and not self._prepare_controlled_shutdown(session, event)
+        ):
+            return
+        self._finish_close(event)
+
+    def _finish_close(self, event: QCloseEvent) -> None:
+        self._shutdown_timer.stop()
         self._metrics_timer.stop()
         self.idle_monitor.stop()
         self.snapshot_view_model.close()
@@ -562,20 +588,17 @@ class MainWindow(QMainWindow):
         with suppress(PermissionError, RuntimeError, ValueError):
             if self.teach_view_model.state.value == "recording":
                 self.teach_view_model.stop()
-        session = self.connection_page.session
-        if (
-            session is not None
-            and session.state is SessionState.READONLY_READY
-            and not self._controlled_shutdown(session, event)
-        ):
-            return
         self.connection_page.close_session()
         self.recording.unbind()
         if self._shutdown is not None:
             self._shutdown()
         event.accept()
 
-    def _controlled_shutdown(self, session: DeviceSession, event: QCloseEvent) -> bool:
+    def _prepare_controlled_shutdown(
+        self,
+        session: DeviceSession,
+        event: QCloseEvent,
+    ) -> bool:
         snapshot = session.latest_snapshot
         fault = snapshot.fault_flags_raw if snapshot is not None else 0
         if fault & RESET_REQUIRED_MASK:
@@ -595,20 +618,72 @@ class MainWindow(QMainWindow):
             and snapshot.run_state_raw == 1
             and fault == 0
             and (snapshot.homed_mask or 0) != 0x1D
+            and self.mode_selector.currentText() == "Operator"
         ):
-            self.notification_center.setText("受控退出: 请求回零 0x1D")
-            session.pause_polling()
-            session.send_home(0x1D)
-            deadline = monotonic() + CONTROLLED_SHUTDOWN_HOME_TIMEOUT_S
-            while monotonic() < deadline:
-                QCoreApplication.processEvents()
-                sleep(0.01)
-                session.poll_once()
-                latest = session.latest_snapshot
-                if latest is not None and (latest.homed_mask or 0) == 0x1D:
-                    self.notification_center.setText("受控退出: 回零完成证据已记录")
-                    return True
+            if not self._shutdown_pending:
+                self._begin_controlled_home(session)
+            event.ignore()
+            return False
         return True
+
+    def _begin_controlled_home(self, session: DeviceSession) -> None:
+        self.manual_view_model.stop_hold("shutdown_pending")
+        self.trajectory_view_model.abort_playback("shutdown_pending")
+        self.idle_monitor.stop()
+        session.pause_polling()
+        self._shutdown_pending = True
+        self._shutdown_home_started = False
+        self._shutdown_session = session
+        self._shutdown_deadline_ns = monotonic_ns() + int(
+            CONTROLLED_SHUTDOWN_HOME_TIMEOUT_S * 1_000_000_000
+        )
+        self.notification_center.setText("受控退出: 等待链路空闲后通过 SafetyGate 回零")
+        self._shutdown_timer.start()
+
+    def _shutdown_tick(self) -> None:
+        session = self._shutdown_session
+        if not self._shutdown_pending or session is None:
+            self._shutdown_timer.stop()
+            return
+        if session.state is SessionState.DISCONNECTED:
+            self._complete_controlled_shutdown("设备已断开")
+            return
+        snapshot = session.latest_snapshot
+        if snapshot is not None and (snapshot.homed_mask or 0) == 0x1D:
+            self._complete_controlled_shutdown("回零完成证据已记录")
+            return
+        if monotonic_ns() >= self._shutdown_deadline_ns:
+            self._handle_controlled_shutdown_timeout(session)
+            return
+        if not self._shutdown_home_started and not session.request_in_flight:
+            self._shutdown_home_started = True
+            self.notification_center.setText("受控退出: 通过 SafetyGate 请求回零 0x1D")
+            self.home_view_model.start_home()
+        elif self._shutdown_home_started and not session.request_in_flight:
+            session.poll_once()
+
+    def _handle_controlled_shutdown_timeout(self, session: DeviceSession) -> None:
+        self._shutdown_timer.stop()
+        confirmed = self._confirm_fault_exit(
+            "受控回零未确认",
+            "5 秒内未观察到 homed 0x1D，动作结果可能未知。是否仍然断开并退出?",
+        )
+        if confirmed:
+            self._complete_controlled_shutdown("回零超时，用户确认强制断开")
+            return
+        self._shutdown_pending = False
+        self._shutdown_home_started = False
+        self._shutdown_session = None
+        session.resume_polling()
+        self.idle_monitor.start()
+        self.notification_center.setText("已取消退出；请确认机械状态后重试")
+
+    def _complete_controlled_shutdown(self, detail: str) -> None:
+        self._shutdown_timer.stop()
+        self._shutdown_pending = False
+        self._shutdown_ready = True
+        self.notification_center.setText(f"受控退出: {detail}")
+        QTimer.singleShot(0, self.close)
 
     def _default_fault_exit_confirm(self, title: str, text: str) -> bool:
         answer = QMessageBox.warning(

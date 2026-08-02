@@ -1,12 +1,14 @@
 """Operator-idle auto-home, countdown, and controlled-shutdown tests."""
 
+from time import monotonic
 from typing import cast
 
 from pytestqt.qtbot import QtBot
 
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.gui.shell import MainWindow
 from zeroarm_desktop.gui.viewmodels.idle_monitor import OPERATOR_IDLE_TIMEOUT_MS
-from zeroarm_desktop.transport.mock import MockTransport
+from zeroarm_desktop.transport.mock import MockSettings, MockTransport
 
 
 def _connected_operator(window: MainWindow) -> None:
@@ -99,15 +101,42 @@ def test_idle_monitor_never_sends_on_serial_readonly(qtbot: QtBot) -> None:
 
 
 def test_controlled_shutdown_homes_before_closing(qtbot: QtBot) -> None:
-    window = MainWindow()
+    window = MainWindow(confirm_fault_exit=lambda _title, _text: True)
     qtbot.addWidget(window)
+    window.show()
     _connected_operator(window)
     session = window.connection_page.session
     assert session is not None
     assert (session.latest_snapshot and session.latest_snapshot.homed_mask) == 0
     window.close()
+    qtbot.waitUntil(lambda: session.state is SessionState.DISCONNECTED, timeout=5000)
     assert (session.latest_snapshot and session.latest_snapshot.homed_mask) == 0x1D
-    assert session.state.value == "disconnected"
+
+
+def test_controlled_shutdown_does_not_block_ui_while_home_is_pending(qtbot: QtBot) -> None:
+    def session_factory() -> DeviceSession:
+        return DeviceSession(
+            MockTransport(MockSettings(response_delay_ms=250)),
+            actions_allowed=True,
+            request_timeout_s=2.0,
+        )
+
+    window = MainWindow(session_factory=session_factory)
+    qtbot.addWidget(window)
+    window.show()
+    _connected_operator(window)
+    session = window.connection_page.session
+    assert session is not None
+    qtbot.waitUntil(lambda: session.state is SessionState.READONLY_READY, timeout=5000)
+
+    started = monotonic()
+    window.close()
+    elapsed = monotonic() - started
+
+    assert elapsed < 0.1
+    assert session.state is not SessionState.DISCONNECTED
+    qtbot.waitUntil(lambda: session.state is SessionState.DISCONNECTED, timeout=5000)
+    assert (session.latest_snapshot and session.latest_snapshot.homed_mask) == 0x1D
 
 
 def test_estop_blocked_shutdown_requires_confirmation(qtbot: QtBot) -> None:

@@ -4,7 +4,7 @@ from time import monotonic_ns
 
 from PySide6.QtCore import QObject, Signal
 
-from zeroarm_desktop.application.device_session import DeviceSession
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.domain.safety import (
     AppMode,
     CommandFamily,
@@ -33,7 +33,7 @@ class SoftwareStopViewModel(QObject):
             self.status_changed.emit("软件 STOP | 本地调度已停止 | Serial 只读，未发送设备命令")
             return False
         context = SafetyContext(
-            session.state,
+            session.state is SessionState.READONLY_READY,
             AppMode.OBSERVER,
             session.latest_snapshot,
             monotonic_ns(),

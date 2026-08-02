@@ -8,7 +8,6 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from zeroarm_desktop.application.device_session import SessionState
 from zeroarm_desktop.domain.models import JointTarget, RobotSnapshot
 from zeroarm_desktop.domain.safety import (
     AppMode,
@@ -44,7 +43,7 @@ def _snapshot(generation: int = 1, received_ns: int = 100) -> RobotSnapshot:
 
 def _context() -> SafetyContext:
     return SafetyContext(
-        SessionState.READONLY_READY,
+        True,
         AppMode.OPERATOR,
         _snapshot(),
         200,
@@ -90,7 +89,7 @@ def test_home_is_denied_while_any_axis_is_still_moving() -> None:
 def test_gate_returns_all_relevant_denials() -> None:
     context = replace(
         _context(),
-        session_state=SessionState.DISCONNECTED,
+        session_ready=False,
         mode=AppMode.OBSERVER,
         snapshot=None,
         calibration_hash=None,

@@ -9,8 +9,12 @@ these thresholds.
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from zeroarm_desktop.domain.models import JointVector, RobotSnapshot
-from zeroarm_desktop.protocol.v1_codec import V1FaultFlag, V1RunState
+from zeroarm_desktop.domain.models import (
+    JointVector,
+    RobotFaultFlag,
+    RobotRunState,
+    RobotSnapshot,
+)
 
 URAD_PER_DEGREE = 17_453
 """Rounded urad per degree (MCU JOINT_URAD_PER_DEGREE); precision ~0.01 deg."""
@@ -306,7 +310,7 @@ class ReadinessReport:
     motion_authorized: bool
     homed_complete: bool
     homed_mask: int | None
-    fault_known: tuple[V1FaultFlag, ...]
+    fault_known: tuple[RobotFaultFlag, ...]
     fault_unknown_bits: int
     fault_flags_raw: int
 
@@ -317,21 +321,22 @@ def evaluate_readiness(
 ) -> ReadinessReport:
     """Derive motion authorization and homing readiness from a V1 snapshot."""
     profile = profile or HardwareProfile.default()
-    run_state: V1RunState | None = None
+    run_state: RobotRunState | None = None
     run_state_name: str | None = None
     run_state_known = False
     try:
-        run_state = V1RunState(snapshot.run_state_raw)
+        run_state = RobotRunState(snapshot.run_state_raw)
         run_state_name = run_state.name
         run_state_known = True
     except ValueError:
         pass
-    fault_known = tuple(flag for flag in V1FaultFlag if snapshot.fault_flags_raw & flag.value)
+    fault_known = tuple(flag for flag in RobotFaultFlag if snapshot.fault_flags_raw & flag.value)
     fault_unknown_bits = snapshot.fault_flags_raw & ~0x0FFF
     reset_required = (
-        snapshot.fault_flags_raw & (V1FaultFlag.STARTUP | V1FaultFlag.HOMING | V1FaultFlag.ESTOP)
+        snapshot.fault_flags_raw
+        & (RobotFaultFlag.STARTUP | RobotFaultFlag.HOMING | RobotFaultFlag.ESTOP)
     ) != 0
-    motion_authorized = run_state is V1RunState.READY and snapshot.fault_flags_raw == 0
+    motion_authorized = run_state is RobotRunState.READY and snapshot.fault_flags_raw == 0
     homed_mask = snapshot.homed_mask
     homed_complete = (
         homed_mask is not None and (homed_mask & profile.home_mask) == profile.home_mask

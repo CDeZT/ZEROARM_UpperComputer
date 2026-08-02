@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from uuid import UUID, uuid4
 
-from zeroarm_desktop.application.device_session import SessionState
 from zeroarm_desktop.domain.hardware_profile import (
     HardwareProfile,
     InterlockPolicy,
@@ -43,7 +42,7 @@ class CommandIntent:
 
 @dataclass(frozen=True, slots=True)
 class SafetyContext:
-    session_state: SessionState
+    session_ready: bool
     mode: AppMode
     snapshot: RobotSnapshot | None
     now_monotonic_ns: int
@@ -106,14 +105,14 @@ class SafetyGate:
         denials: list[str] = []
         warnings: list[str] = ["软件检查不能替代机械急停和装机确认"]
         if intent.family is CommandFamily.STOP:
-            if context.session_state is not SessionState.READONLY_READY:
+            if not context.session_ready:
                 denials.append("session_not_ready")
             if intent.joint_mask != 0:
                 denials.append("stop_mask_must_be_empty")
             return SafetyDecision(not denials, tuple(denials), tuple(warnings), intent, None)
 
         snapshot = context.snapshot
-        if context.session_state is not SessionState.READONLY_READY:
+        if not context.session_ready:
             denials.append("session_not_ready")
         if context.mode is not AppMode.OPERATOR:
             denials.append("operator_mode_required")

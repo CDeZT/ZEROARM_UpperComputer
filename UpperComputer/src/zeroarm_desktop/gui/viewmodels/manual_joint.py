@@ -4,7 +4,7 @@ from time import monotonic_ns
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
-from zeroarm_desktop.application.device_session import DeviceSession
+from zeroarm_desktop.application.device_session import DeviceSession, SessionState
 from zeroarm_desktop.domain.hardware_profile import HardwareProfile
 from zeroarm_desktop.domain.models import JointTarget
 from zeroarm_desktop.domain.safety import (
@@ -203,7 +203,7 @@ class ManualJointViewModel(QObject):
     def _context(self, *, hold_active: bool) -> SafetyContext:
         session = self._session()
         return SafetyContext(
-            session.state,
+            session.state is SessionState.READONLY_READY,
             self._mode,
             session.latest_snapshot,
             monotonic_ns(),

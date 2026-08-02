@@ -166,7 +166,7 @@ UpperComputer/src/zeroarm_desktop/__init__.py
 UpperComputer/src/zeroarm_desktop/__main__.py
 UpperComputer/src/zeroarm_desktop/bootstrap.py
 UpperComputer/src/zeroarm_desktop/version.py
-UpperComputer/src/zeroarm_desktop/gui/main_window.py
+UpperComputer/src/zeroarm_desktop/gui/shell.py
 UpperComputer/tests/test_app_smoke.py
 UpperComputer/tests/conftest.py
 UpperComputer/README_DEVELOPMENT.md
